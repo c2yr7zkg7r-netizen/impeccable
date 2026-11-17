@@ -4,7 +4,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>AI Ecosystem Galaxy</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&family=Figtree:wght@500;600;700;800&family=Instrument+Serif:ital@0;1&display=swap">
 <style>
 /* Layout: one full-bleed WebGL scene. HUD panels dock left (layers), right (inspector, stats)
    and bottom (god mode); on phones they become bottom sheets behind a tab bar.
@@ -18,6 +18,7 @@
   --f-display:'Chakra Petch','Trebuchet MS',sans-serif;
   --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
   --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --card:#ffffff; --card-fg:#17171c; --card-dim:#74747f;
   --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
 }
 :root[data-palette="terminal"]{
@@ -37,6 +38,16 @@
   --accent:#b388ff; --accent2:#ff5cf0; --grid:#5a2bd6;
   --c-chips:#e0b3ff; --c-cloud:#5c8dff; --c-frontier:#b388ff; --c-apps:#ffd0fb;
   --c-agents:#ff8ad8; --c-tools:#7c5cff; --c-open:#4dd0ff; --c-labs:#ff5cf0;
+}
+:root[data-look="toy"]{
+  color-scheme:light;
+  --bg:#eeede8; --panel:rgba(255,255,255,.9); --line:rgba(24,24,40,.13); --fg:#17171c; --dim:#74747f;
+  --accent:#4338ca; --accent2:#e2553f; --grid:#c9c8c0;
+  --c-labs:#7c4ddb; --c-chips:#f0a030; --c-cloud:#6c9cf0; --c-frontier:#2d3fd3;
+  --c-open:#4fc08f; --c-tools:#f0875a; --c-agents:#e2553f; --c-apps:#efc23f;
+  --f-display:'Instrument Serif','Iowan Old Style',Georgia,serif;
+  --f-body:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'Figtree',system-ui,-apple-system,'Segoe UI',sans-serif;
 }
 *,*::before,*::after{box-sizing:border-box}
 [hidden]{display:none!important}
@@ -141,10 +152,12 @@ button,input,select{font:inherit;color:inherit}
 .tog label{display:flex;align-items:center;gap:6px;cursor:pointer}
 .tog input{accent-color:var(--accent);margin:0}
 .add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
-.add .row{grid-column:1/3}
-.add input,.add select{width:100%;padding:6px 8px;background:color-mix(in srgb,var(--fg) 5%,transparent);border:1px solid color-mix(in srgb,var(--fg) 18%,transparent);border-radius:0;font:400 12px var(--f-mono);outline:none}
+.add .row,.add .wide{grid-column:1/3}
+#looks{grid-template-columns:repeat(3,minmax(0,1fr))}
+#looks .pal{justify-content:center}
+.add input,.add select,.edit input,.edit select,.edit textarea{width:100%;padding:6px 8px;background:color-mix(in srgb,var(--fg) 5%,transparent);border:1px solid color-mix(in srgb,var(--fg) 18%,transparent);border-radius:0;font:400 12px var(--f-mono);outline:none}
 .add select option{background:var(--bg);color:var(--fg)}
-.add input:focus-visible,.add select:focus-visible{border-color:var(--accent)}
+.add input:focus-visible,.add select:focus-visible,.edit input:focus-visible,.edit select:focus-visible,.edit textarea:focus-visible{border-color:var(--accent)}
 .row{display:flex;flex-wrap:wrap;gap:6px}
 #p-god.collapsed .panel-b{display:none}
 #god-toggle{background:none;border:0;cursor:pointer;color:var(--dim);font:400 10px var(--f-mono);padding:2px 0}
@@ -152,6 +165,39 @@ button,input,select{font:inherit;color:inherit}
 
 .toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(92%,460px);
   padding:8px 12px;background:var(--bg);border:1px solid var(--accent2);font:400 12px var(--f-mono);pointer-events:auto;z-index:6}
+.job{margin-top:7px;font:700 14px/1.25 var(--f-body)}
+.edit{display:grid;gap:8px;margin-top:10px}
+.fld{display:grid;gap:3px}
+.fld span{font:600 10px/1 var(--f-display);letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.edit textarea{resize:vertical;min-height:58px;font-family:var(--f-body)}
+
+#leaders{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.card{position:absolute;left:0;top:0;display:none;padding:8px 14px 9px 11px;background:var(--card);color:var(--card-fg);border-radius:14px;
+  box-shadow:0 1px 2px rgba(24,24,40,.08),0 8px 22px rgba(24,24,40,.13);white-space:nowrap;pointer-events:auto;cursor:pointer;font-family:var(--f-body);will-change:transform}
+.card .cn{display:flex;align-items:center;gap:7px;font-weight:600;font-size:12px;line-height:1.2;color:var(--card-dim)}
+.card .cn i{flex:none;width:9px;height:9px;border-radius:50%;background:currentColor;box-shadow:0 0 0 3px color-mix(in srgb,currentColor 24%,transparent)}
+.card b{display:block;margin:2px 0 0 16px;font-weight:800;font-size:15.5px;line-height:1.15;letter-spacing:-.01em}
+
+/* Diorama look: soft white cards, serif title, no neon chrome */
+[data-look="toy"] .panel{clip-path:none;border:0;border-radius:18px;box-shadow:0 1px 2px rgba(24,24,40,.06),0 12px 32px rgba(24,24,40,.1)}
+[data-look="toy"] .brand h1{font:400 34px/1 var(--f-display);letter-spacing:-.01em;text-transform:none;text-shadow:none}
+[data-look="toy"] .brand h1 b{font-weight:400;font-style:italic}
+[data-look="toy"] .panel-h{color:var(--fg);font:800 11px/1 var(--f-body);letter-spacing:.1em}
+[data-look="toy"] .grp h3,[data-look="toy"] .rel h3,[data-look="toy"] .spark p,[data-look="toy"] .hubs h3,[data-look="toy"] .fld span{font:700 10px/1 var(--f-body);letter-spacing:.1em}
+[data-look="toy"] #p-inspect h2{font:400 31px/1.02 var(--f-display);letter-spacing:-.01em}
+[data-look="toy"] .fig b{font:800 22px/1 var(--f-body)}
+[data-look="toy"] .btn{border-radius:10px;font:700 12px/1.2 var(--f-body);letter-spacing:0;text-transform:none;padding:7px 12px}
+[data-look="toy"] .btn.solid{color:#fff}
+[data-look="toy"] .pal,[data-look="toy"] .x,[data-look="toy"] .search input,[data-look="toy"] .results,[data-look="toy"] .add input,[data-look="toy"] .add select,
+[data-look="toy"] .edit input,[data-look="toy"] .edit select,[data-look="toy"] .edit textarea,[data-look="toy"] .toast,[data-look="toy"] .tab{border-radius:10px}
+[data-look="toy"] .chip{border-radius:999px;padding:4px 10px 4px 7px}
+[data-look="toy"] .search input{background:var(--card);box-shadow:0 1px 2px rgba(24,24,40,.05),0 6px 16px rgba(24,24,40,.07);border-color:transparent}
+[data-look="toy"] .tab{font:700 11px/1 var(--f-body);letter-spacing:.02em;text-transform:none}
+[data-look="toy"] .tab[aria-pressed="true"]{color:#fff}
+[data-look="toy"] .cl{font:800 10.5px/1 var(--f-body);letter-spacing:.12em}
+[data-look="toy"] .nl{font:600 11px/1 var(--f-body)}
+[data-look="toy"] .layer .bar i{box-shadow:none}
+[data-look="toy"] #pal-wrap{display:none}
 .tabs{display:none}
 .fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--dim)}
 
@@ -160,6 +206,7 @@ button,input,select{font:inherit;color:inherit}
   .col{display:contents}
   .brand{pointer-events:auto;position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 12px;align-items:center}
   .brand h1{font-size:14px;margin:0}
+  [data-look="toy"] .brand h1{font-size:23px}
   .brand p{grid-column:1/3;grid-row:2;margin:0;font-size:10px}
   .panel{position:absolute;left:var(--gl);right:var(--gr);bottom:62px;max-height:50%;display:none;pointer-events:auto}
   .panel.open{display:flex}
@@ -176,7 +223,8 @@ button,input,select{font:inherit;color:inherit}
 </style>
 
 <div id="app">
-  <canvas id="scene" aria-label="3D map of the AI ecosystem. Drag to orbit, scroll or pinch to zoom, click a node to inspect it."></canvas>
+  <canvas id="scene" aria-label="3D map of the AI ecosystem. Drag to orbit, scroll or pinch to zoom, click a building to inspect or edit it."></canvas>
+  <canvas id="leaders" aria-hidden="true"></canvas>
   <div id="labels" aria-hidden="true"></div>
 
   <div class="hud">
@@ -184,7 +232,7 @@ button,input,select{font:inherit;color:inherit}
       <header class="brand">
         <h1>AI Ecosystem <b>Galaxy</b></h1>
         <div class="search">
-          <input id="q" type="search" placeholder="Find a player" autocomplete="off" spellcheck="false" aria-label="Find a player by name" aria-controls="q-results">
+          <input id="q" type="search" placeholder="Find a building" autocomplete="off" spellcheck="false" aria-label="Find a building by name" aria-controls="q-results">
           <ul class="results" id="q-results" hidden></ul>
         </div>
         <p id="tagline">Curated snapshot, mid-2026</p>
@@ -194,7 +242,7 @@ button,input,select{font:inherit;color:inherit}
         <div class="panel-h"><span>Layers</span><span>click to hide</span></div>
         <div class="panel-b">
           <div id="layers"></div>
-          <p class="hint">Drag to orbit. Scroll or pinch to zoom. Click a player to inspect it. In the city look, taller towers have more connections.</p>
+          <p class="hint">Drag to orbit. Scroll or pinch to zoom. Click a building to inspect or edit it. Bigger buildings have more connections.</p>
         </div>
       </section>
     </div>
@@ -207,11 +255,14 @@ button,input,select{font:inherit;color:inherit}
             <div class="grp">
               <h3>Look</h3>
               <div class="pals" id="looks">
-                <button class="pal" type="button" data-look="city" aria-pressed="false"><span>City blocks</span></button>
-                <button class="pal" type="button" data-look="neon" aria-pressed="false"><span>Neon grid</span></button>
+                <button class="pal" type="button" data-look="toy" aria-pressed="false"><span>Diorama</span></button>
+                <button class="pal" type="button" data-look="city" aria-pressed="false"><span>City</span></button>
+                <button class="pal" type="button" data-look="neon" aria-pressed="false"><span>Neon</span></button>
               </div>
-              <h3 class="gap">Palette</h3>
-              <div class="pals" id="pals"></div>
+              <div id="pal-wrap">
+                <h3 class="gap">Palette</h3>
+                <div class="pals" id="pals"></div>
+              </div>
               <div class="tog">
                 <label><input type="checkbox" id="t-labels" checked> Labels</label>
                 <label><input type="checkbox" id="t-grid" checked> Grid</label>
@@ -226,17 +277,18 @@ button,input,select{font:inherit;color:inherit}
               <label class="sl">Glow <input type="range" id="s-glow" min="0" max="2" step="0.01"></label>
             </div>
             <div class="grp">
-              <h3>Add a player</h3>
+              <h3>Add a building</h3>
               <form class="add" id="add-form">
-                <input id="add-name" type="text" maxlength="32" placeholder="Name" aria-label="Name of the new player" autocomplete="off">
-                <select id="add-cat" aria-label="Layer for the new player"></select>
+                <input id="add-name" type="text" maxlength="32" placeholder="Name" aria-label="Name of the new building" autocomplete="off">
+                <select id="add-cat" aria-label="Layer for the new building"></select>
+                <input class="wide" id="add-job" type="text" maxlength="40" placeholder="Job (optional), e.g. Trains robots" aria-label="Job of the new building" autocomplete="off">
                 <div class="row">
                   <button class="btn solid" type="submit">Add</button>
                   <button class="btn" type="button" id="b-home">Reset view</button>
                   <button class="btn warn" type="button" id="b-restore">Restore map</button>
                 </div>
               </form>
-              <p class="hint" id="add-hint">New players link to the selected node, if there is one.</p>
+              <p class="hint" id="add-hint">New buildings link to the selected node, if there is one.</p>
             </div>
           </div>
         </div>
@@ -253,10 +305,10 @@ button,input,select{font:inherit;color:inherit}
         <div class="panel-h"><span>Live stats</span></div>
         <div class="panel-b">
           <div class="figs">
-            <div class="fig"><b id="f-nodes">0</b><span>players</span></div>
+            <div class="fig"><b id="f-nodes">0</b><span>buildings</span></div>
             <div class="fig"><b id="f-links">0</b><span>links</span></div>
             <div class="fig"><b id="f-flight">0</b><span>signals in flight</span></div>
-            <div class="fig"><b id="f-avg">0</b><span>links per player</span></div>
+            <div class="fig"><b id="f-avg">0</b><span>links per building</span></div>
           </div>
           <div class="spark">
             <p>Signals arriving per second</p>
@@ -493,16 +545,17 @@ function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } ca
 var reduceMotion = false;
 try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
 
-var DEFAULTS = { look: 'city', palette: 'arcade', spin: reduceMotion ? 0 : 0.3, signals: reduceMotion ? 0 : 240, links: 0.55, spread: 1, glow: 0.85, labels: true, grid: true, godOpen: true };
+var DEFAULTS = { v: 3, look: 'toy', palette: 'arcade', spin: reduceMotion ? 0 : 0.3, signals: reduceMotion ? 0 : 240, links: 0.55, spread: 1, glow: 0.85, labels: true, grid: true, godOpen: true };
 var S = Object.assign({}, DEFAULTS, load('aieg.settings', {}));
 if (!PALETTES.some(function (p) { return p.id === S.palette; })) S.palette = 'arcade';
-if (S.look !== 'neon' && S.look !== 'city') S.look = 'city';
-var edits = Object.assign({ added: [], removed: [], cut: [], links: [] }, load('aieg.edits', {}));
+if (S.v !== 3) { S.v = 3; S.look = 'toy'; }
+if (S.look !== 'neon' && S.look !== 'city' && S.look !== 'toy') S.look = 'toy';
+var edits = Object.assign({ added: [], removed: [], cut: [], links: [], over: {} }, load('aieg.edits', {}));
 function saveSettings() { save('aieg.settings', S); }
 function saveEdits() { save('aieg.edits', edits); }
 
 var hiddenCats = {};
-var sel = null, hover = null, linkFrom = null;
+var sel = null, hover = null, linkFrom = null, editing = null;
 
 /* ---------- Graph ---------- */
 var nodes = [], links = [], byId = {};
@@ -513,16 +566,19 @@ function buildGraph() {
   var removed = {}; edits.removed.forEach(function (id) { removed[id] = 1; });
   var cut = {}; edits.cut.forEach(function (k) { cut[k] = 1; });
   nodes = []; byId = {};
-  function addNode(id, name, cat, year, org, blurb, custom) {
+  function addNode(id, name, cat, year, org, blurb, custom, job, edited) {
     if (removed[id] || byId[id] || !CAT[cat]) return;
     var old = prev[id];
-    var n = { id: id, name: name, cat: cat, year: year, org: org, blurb: blurb, custom: !!custom, links: [], nb: {}, deg: 0,
+    var n = { id: id, name: name, cat: cat, year: year, org: org, blurb: blurb, custom: !!custom, job: job || '', edited: !!edited, links: [], nb: {}, deg: 0,
       pos: old ? old.pos : null, k: old ? old.k : 0, flash: 0, phase: Math.random() * 6.28, dir: Math.random() < 0.5 ? -1 : 1,
       sx: 0, sy: 0, sr: 0, dist: 0, vis: false };
     nodes.push(n); byId[id] = n;
   }
-  BASE_NODES.forEach(function (r) { addNode(r[0], r[1], r[2], r[3], r[4], r[5], false); });
-  edits.added.forEach(function (a) { addNode(a.id, a.name, a.cat, null, 'Added by you', 'A player you added in God mode. It is saved in this browser only.', true); });
+  BASE_NODES.forEach(function (r) {
+    var o = edits.over[r[0]] || {};
+    addNode(r[0], o.name || r[1], CAT[o.cat] ? o.cat : r[2], r[3], r[4], o.blurb != null ? o.blurb : r[5], false, o.job, !!edits.over[r[0]]);
+  });
+  edits.added.forEach(function (a) { addNode(a.id, a.name, a.cat, null, 'Added by you', a.blurb || 'A building you added in God mode. It is saved in this browser only.', true, a.job, false); });
 
   links = [];
   var seen = {};
@@ -540,8 +596,36 @@ function buildGraph() {
     for (var i = 2; i < p.length; i++) addLink(p[0], p[i], p[1]);
   });
   edits.links.forEach(function (p) { addLink(p[0], p[1], 'link'); });
-  nodes.forEach(function (n) { n.deg = Object.keys(n.nb).length; n.r = 0.95 + 0.34 * Math.sqrt(n.deg); });
+  nodes.forEach(function (n) { n.deg = Object.keys(n.nb).length; n.r = 0.95 + 0.34 * Math.sqrt(n.deg); n.jobAuto = autoJob(n); });
 }
+
+// A building's job, unless you write your own: its most common relationship. [rel, outgoing, many, one]
+var JOBS = [
+  ['powers', true, 'Powers # products', 'Powers @'], ['hosts', true, 'Serves # models', 'Serves @'],
+  ['makes', true, 'Builds # products', 'Builds @'], ['supplies', true, 'Supplies # customers', 'Supplies @'],
+  ['runs', false, 'Compute for # teams', 'Compute for @'], ['backs', true, 'Backs # labs', 'Backs @'],
+  ['uses', false, 'Used by # products', 'Used by @'], ['connects', true, 'Connects to # models', 'Connects to @'],
+  ['powers', false, 'Powered by # models', 'Powered by @'], ['makes', false, 'Made by # teams', 'Made by @'],
+  ['hosts', false, 'Served by # hosts', 'Served by @'], ['runs', true, 'Runs on # clouds', 'Runs on @'],
+  ['uses', true, 'Uses # tools', 'Uses @'], ['supplies', false, 'Supplied by # vendors', 'Supplied by @'],
+  ['backs', false, 'Backed by # investors', 'Backed by @'], ['owns', true, 'Owns # companies', 'Owns @'],
+  ['owns', false, 'Owned by # companies', 'Owned by @'], ['alumni', true, 'Alumni of # labs', 'Alumni of @'],
+  ['alumni', false, 'Alumni founded # labs', 'Alumni founded @'], ['connects', false, 'Reachable from # tools', 'Reachable from @'],
+  ['sibling', true, 'Sibling of # products', 'Sibling of @'], ['sibling', false, 'Sibling of # products', 'Sibling of @'],
+  ['link', true, 'Linked to # buildings', 'Linked to @'], ['link', false, 'Linked to # buildings', 'Linked to @']
+];
+function autoJob(n) {
+  var best = null, bestC = 0;
+  JOBS.forEach(function (j) {
+    var list = n.links.filter(function (l) { return l.rel === j[0] && (j[1] ? l.a === n : l.b === n); });
+    if (list.length > bestC) { bestC = list.length; best = [j, list]; }
+  });
+  if (!best) return 'New on the map';
+  if (bestC === 1) { var l = best[1][0]; return best[0][3].replace('@', (l.a === n ? l.b : l.a).name); }
+  return best[0][2].replace('#', bestC);
+}
+function jobOf(n) { return n.job || n.jobAuto; }
+var TOY_SCALE = 1.5, TOY_H = { labs: 3.2, chips: 3.0, cloud: 3.3, frontier: 5.65, open: 3.2, tools: 2.6, agents: 3.9, apps: 2.95 };
 
 /* ---------- Layout: a galaxy of clusters, labs at the core ---------- */
 var clusters = {};
@@ -567,7 +651,19 @@ function layout() {
       node.home2 = new THREE.Vector3(Math.cos(phi2) * rad2, 0, Math.sin(phi2) * rad2);
       node.h = 3 + 1.7 * node.deg; node.w = 2.6 + 0.12 * node.deg; maxH = Math.max(maxH, node.h);
     });
-    var d = new THREE.Vector3();
+    var d = new THREE.Vector3(), maxT = 0;
+    list.forEach(function (node, j) {
+      node.u = 1.3 + 0.11 * node.deg; node.th = TOY_H[node.cat] * node.u; maxT = Math.max(maxT, node.th);
+      var rad3 = 9.2 * Math.sqrt(j), phi3 = j * 2.39996 + 1.1;
+      node.home3 = new THREE.Vector3(Math.cos(phi3) * rad3, 0, Math.sin(phi3) * rad3);
+    });
+    for (var it3 = 0; it3 < 16; it3++) {
+      for (var a3 = 0; a3 < n; a3++) for (var b3 = a3 + 1; b3 < n; b3++) {
+        d.subVectors(list[b3].home3, list[a3].home3);
+        var len3 = d.length() || 0.001, min3 = (list[a3].u + list[b3].u) * 2.25 + 1.0;
+        if (len3 < min3) { d.multiplyScalar((min3 - len3) / len3 * 0.5); list[b3].home3.add(d); if (a3 > 0) list[a3].home3.sub(d); }
+      }
+    }
     for (var it2 = 0; it2 < 14; it2++) {
       for (var a2 = 0; a2 < n; a2++) for (var b2 = a2 + 1; b2 < n; b2++) {
         d.subVectors(list[b2].home2, list[a2].home2);
@@ -582,7 +678,7 @@ function layout() {
         if (len < min) { d.multiplyScalar((min - len) / len * 0.5); list[b].home.add(d); if (a > 0) list[a].home.sub(d); }
       }
     }
-    clusters[c.id] = { center: center, R: R, R2: 5.6 * Math.sqrt(Math.max(n, 1)) + 5, H: maxH, count: n };
+    clusters[c.id] = { center: center, R: R, R2: 5.6 * Math.sqrt(Math.max(n, 1)) + 5, H: maxH, R3: 9.2 * Math.sqrt(Math.max(n, 1)) + 8, H3: maxT, count: n };
   });
 }
 
@@ -599,7 +695,7 @@ if (!renderer) {
 }
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 var scene = new THREE.Scene();
-var camera = new THREE.PerspectiveCamera(50, 1, 0.5, 4000);
+var camera = new THREE.PerspectiveCamera(50, 1, 2, 4000);
 var HOME_TARGET = new THREE.Vector3(0, 6, 0);
 var controls = new THREE.OrbitControls(camera, canvas);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
@@ -627,6 +723,11 @@ function glowTexture() {
   return new THREE.CanvasTexture(c);
 }
 var glowTex = glowTexture();
+var dotTex = (function () {
+  var c = document.createElement('canvas'); c.width = c.height = 64;
+  var g = c.getContext('2d'); g.fillStyle = '#fff'; g.beginPath(); g.arc(32, 32, 26, 0, 6.283); g.fill();
+  return new THREE.CanvasTexture(c);
+})();
 
 // One shape per layer, so layers stay readable in the single-hue palettes.
 var GEO = {
@@ -676,10 +777,10 @@ var world = new THREE.Group(); scene.add(world);
 var nodeGroup = new THREE.Group(), ringGroup = new THREE.Group(), towerGroup = new THREE.Group(), padGroup = new THREE.Group();
 world.add(nodeGroup, ringGroup, towerGroup, padGroup);
 
-// City look: lit towers on a solid ground. Height shows how connected a player is.
+// City look: lit towers on a solid ground. Height shows how connected a building is.
 var wallColor = new THREE.Color(), fog = new THREE.Fog(0x000000, 320, 1300);
 var hemi = new THREE.HemisphereLight(0xc4d2ff, 0x080810, 0.95), sun = new THREE.DirectionalLight(0xffffff, 0.85);
-sun.position.set(0.55, 1, 0.35); scene.add(hemi, sun);
+sun.position.set(150, 280, 110); scene.add(hemi, sun);
 var ground = new THREE.Mesh(new THREE.PlaneGeometry(3200, 3200), new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 }));
 ground.rotation.x = -Math.PI / 2; ground.position.y = FLOOR - 0.06; ground.renderOrder = -3; scene.add(ground);
 var BOX_EDGES = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1));
@@ -696,6 +797,89 @@ var winTex = (function () {
   return t;
 })();
 
+// Diorama look: pastel toy buildings on a white slab, with soft shadows.
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+sun.shadow.mapSize.set(2048, 2048); sun.shadow.bias = -0.0006; sun.shadow.normalBias = 0.5; sun.shadow.radius = 3;
+sun.shadow.camera.left = -250; sun.shadow.camera.right = 250; sun.shadow.camera.top = 250; sun.shadow.camera.bottom = -250;
+sun.shadow.camera.near = 20; sun.shadow.camera.far = 900;
+var toyGroup = new THREE.Group(), lawnGroup = new THREE.Group(), treeGroup = new THREE.Group();
+world.add(toyGroup, lawnGroup, treeGroup);
+var UNIT = {
+  cyl: new THREE.CylinderGeometry(1, 1, 1, 28), cone: new THREE.ConeGeometry(1, 1, 28),
+  roof: new THREE.ConeGeometry(1, 1, 4).rotateY(Math.PI / 4), sph: new THREE.SphereGeometry(1, 22, 14),
+  dome: new THREE.SphereGeometry(1, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), box: new THREE.BoxGeometry(1, 1, 1)
+};
+var RING_GEO = new THREE.RingGeometry(0.975, 1, 96), SEL_GEO = new THREE.RingGeometry(0.86, 1, 64);
+var dimGrey = new THREE.Color(0xdcdbd5), bodyWhite = new THREE.Color(0xfbfaf7);
+var treeLeaf = new THREE.MeshStandardMaterial({ color: 0x86d6a6, roughness: 0.9 });
+var treeTrunk = new THREE.MeshStandardMaterial({ color: 0xbdb7ab, roughness: 0.9 });
+var slab = (function () {
+  var w = 152, r = 30, sh = new THREE.Shape();
+  sh.moveTo(-w + r, -w); sh.lineTo(w - r, -w); sh.quadraticCurveTo(w, -w, w, -w + r); sh.lineTo(w, w - r); sh.quadraticCurveTo(w, w, w - r, w);
+  sh.lineTo(-w + r, w); sh.quadraticCurveTo(-w, w, -w, w - r); sh.lineTo(-w, -w + r); sh.quadraticCurveTo(-w, -w, -w + r, -w);
+  var geo = new THREE.ExtrudeGeometry(sh, { depth: 7, bevelEnabled: true, bevelSize: 2, bevelThickness: 2, bevelSegments: 5, curveSegments: 14 });
+  geo.rotateX(-Math.PI / 2);
+  var m = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xf8f7f3, roughness: 0.95 }));
+  m.position.y = FLOOR - 9; m.receiveShadow = true; return m;
+})();
+scene.add(slab);
+var selRing = new THREE.Mesh(SEL_GEO, new THREE.MeshBasicMaterial());
+selRing.rotation.x = -Math.PI / 2; selRing.visible = false; scene.add(selRing);
+
+// One toy building per layer, built from a body material (white) and an accent (the layer colour).
+function toyBuilding(cat, A, B) {
+  var g = new THREE.Group();
+  function p(geo, m, sx, sy, sz, x, y, z) {
+    var me = new THREE.Mesh(geo, m); me.scale.set(sx, sy, sz); me.position.set(x, y, z);
+    me.castShadow = true; me.receiveShadow = true; g.add(me);
+  }
+  var U = UNIT;
+  if (cat === 'labs') {            // observatory
+    p(U.cyl, A, 1.8, 0.3, 1.8, 0, 0.15, 0); p(U.cyl, B, 1.45, 1.5, 1.45, 0, 1.05, 0); p(U.dome, A, 1.45, 1.4, 1.45, 0, 1.8, 0);
+  } else if (cat === 'chips') {    // factory
+    p(U.box, B, 3.2, 1.3, 2.4, 0, 0.65, 0); p(U.box, A, 3.45, 0.3, 2.65, 0, 1.45, 0);
+    p(U.cyl, A, 0.32, 1.4, 0.32, 0.95, 2.3, 0.5); p(U.cyl, B, 0.32, 0.9, 0.32, 0.1, 2.05, 0.5);
+  } else if (cat === 'cloud') {    // storage silos
+    p(U.cyl, B, 0.8, 3.0, 0.8, -0.9, 1.5, 0.2); p(U.cyl, A, 0.88, 0.3, 0.88, -0.9, 3.15, 0.2);
+    p(U.cyl, B, 0.8, 2.2, 0.8, 0.75, 1.1, -0.5); p(U.cyl, A, 0.88, 0.3, 0.88, 0.75, 2.35, -0.5);
+    p(U.cyl, B, 0.8, 1.5, 0.8, 0.5, 0.75, 1.05); p(U.cyl, A, 0.88, 0.3, 0.88, 0.5, 1.65, 1.05);
+  } else if (cat === 'frontier') { // tall tower with a pointed roof
+    p(U.cyl, B, 1.25, 0.45, 1.25, 0, 0.225, 0); p(U.cyl, B, 0.5, 4.3, 0.5, 0, 2.4, 0);
+    p(U.cyl, A, 0.58, 0.28, 0.58, 0, 1.5, 0); p(U.cyl, A, 1.15, 0.42, 1.15, 0, 3.15, 0); p(U.cone, A, 0.85, 1.1, 0.85, 0, 5.1, 0);
+  } else if (cat === 'open') {     // carousel
+    p(U.cyl, A, 2.0, 0.3, 2.0, 0, 0.15, 0); p(U.cyl, B, 1.35, 1.3, 1.35, 0, 0.95, 0);
+    p(U.cone, A, 2.05, 1.2, 2.05, 0, 2.2, 0); p(U.sph, B, 0.28, 0.28, 0.28, 0, 2.92, 0);
+  } else if (cat === 'tools') {    // workshop
+    p(U.box, B, 2.6, 1.5, 2.1, 0, 0.75, 0); p(U.roof, A, 1.95, 1.1, 1.6, 0, 2.05, 0); p(U.box, A, 0.55, 0.9, 0.1, 0, 0.45, 1.06);
+  } else if (cat === 'agents') {   // gate
+    p(U.box, A, 0.85, 3.0, 0.85, -1.05, 1.5, 0); p(U.box, A, 0.85, 3.0, 0.85, 1.05, 1.5, 0);
+    p(U.box, B, 2.4, 0.5, 0.7, 0, 2.3, 0); p(U.roof, B, 0.75, 0.9, 0.75, -1.05, 3.45, 0); p(U.roof, B, 0.75, 0.9, 0.75, 1.05, 3.45, 0);
+  } else {                         // shop
+    p(U.box, B, 2.0, 1.9, 2.0, 0, 0.95, 0); p(U.box, A, 2.5, 0.3, 2.5, 0, 2.05, 0);
+    p(U.sph, A, 0.42, 0.42, 0.42, 0, 2.53, 0); p(U.box, A, 0.9, 0.9, 0.1, 0, 0.55, 1.01);
+  }
+  g.userData.mats = [A, B];
+  return g;
+}
+function buildTrees() {
+  while (treeGroup.children.length) treeGroup.remove(treeGroup.children[0]);
+  var seed = 11, rnd = function () { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+  for (var t = 0, tries = 0; t < 48 && tries < 1200; tries++) {
+    var x = (rnd() * 2 - 1) * 143, z = (rnd() * 2 - 1) * 143, ok = true;
+    for (var ci = 0; ci < CATS.length; ci++) {
+      var cl = clusters[CATS[ci].id];
+      if (Math.hypot(x - cl.center.x * TOY_SCALE, z - cl.center.z * TOY_SCALE) < cl.R3 + 4) ok = false;
+    }
+    if (!ok) continue; t++;
+    var g = new THREE.Group(), trunk = new THREE.Mesh(UNIT.cyl, treeTrunk), pine = rnd() < 0.28;
+    trunk.scale.set(0.14, 1.3, 0.14); trunk.position.y = 0.65;
+    var leaf = new THREE.Mesh(pine ? UNIT.cone : UNIT.sph, treeLeaf);
+    if (pine) { leaf.scale.set(0.85, 2.1, 0.85); leaf.position.y = 1.9; } else { leaf.scale.setScalar(0.82); leaf.position.y = 1.9; }
+    trunk.castShadow = leaf.castShadow = true;
+    g.add(trunk, leaf); g.scale.setScalar(1.3 + rnd() * 1.3); g.userData.x = x; g.userData.z = z; treeGroup.add(g);
+  }
+}
+
 var SEG = 18;
 var linkMesh = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
 linkMesh.frustumCulled = false; world.add(linkMesh);
@@ -708,13 +892,16 @@ pulseGeo.setAttribute('position', new THREE.BufferAttribute(pulsePos, 3));
 pulseGeo.setAttribute('color', new THREE.BufferAttribute(pulseCol, 3));
 var pulseMesh = new THREE.Points(pulseGeo, new THREE.PointsMaterial({ size: 3.2, map: glowTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, fog: false }));
 pulseMesh.frustumCulled = false; world.add(pulseMesh);
+var linkMatGlow = linkMesh.material, linkMatDash = new THREE.LineDashedMaterial({ vertexColors: true, transparent: true, dashSize: 1.3, gapSize: 1.7, depthWrite: false });
+var pulseMatGlow = pulseMesh.material, pulseMatDot = new THREE.PointsMaterial({ size: 1.9, map: dotTex, vertexColors: true, transparent: true, alphaTest: 0.35, depthWrite: false });
 var pulses = [];
 
-var catColor = {}, bgColor = new THREE.Color(), cssCache = {}, col = new THREE.Color();
+var catColor = {}, cssCat = {}, bgColor = new THREE.Color(), cssCache = {}, col = new THREE.Color();
 function readPalette() {
   var cs = getComputedStyle(document.documentElement);
   function v(name) { return cs.getPropertyValue(name).trim(); }
-  CATS.forEach(function (c) { catColor[c.id] = new THREE.Color(v('--c-' + c.id)); });
+  CATS.forEach(function (c) { cssCat[c.id] = v('--c-' + c.id); catColor[c.id] = new THREE.Color(cssCat[c.id]); });
+  cssCache.card = v('--card');
   bgColor.set(v('--bg'));
   scene.background = bgColor;
   grid.material.uniforms.uColor.value.set(v('--grid'));
@@ -728,6 +915,7 @@ function readPalette() {
     var c = clusters[id]; if (!c.ring) return;
     c.ring.material.color.copy(catColor[id]);
     c.pad.material.color.copy(bgColor).lerp(catColor[id], 0.13);
+    c.lawn.material.color.set(0xffffff).lerp(catColor[id], 0.26); c.edge.material.color.copy(catColor[id]);
   });
 }
 function paintNode(n) {
@@ -736,13 +924,15 @@ function paintNode(n) {
   o.side.emissive.copy(c); o.tedges.material.color.copy(c);
 }
 
-var linkPos, linkCol, dropPos, dropCol;
+var linkPos, linkCol, linkDist, dropPos, dropCol;
 function buildObjects() {
   while (nodeGroup.children.length) {
     var g = nodeGroup.children[0]; nodeGroup.remove(g);
     g.children.forEach(function (ch) { if (ch.material) ch.material.dispose(); });
   }
   while (ringGroup.children.length) { var r = ringGroup.children[0]; ringGroup.remove(r); r.geometry.dispose(); r.material.dispose(); }
+  while (toyGroup.children.length) { var ty = toyGroup.children[0]; toyGroup.remove(ty); ty.userData.mats.forEach(function (m) { m.dispose(); }); }
+  while (lawnGroup.children.length) { var lw = lawnGroup.children[0]; lawnGroup.remove(lw); lw.material.dispose(); }
   while (padGroup.children.length) { var pd = padGroup.children[0]; padGroup.remove(pd); pd.material.dispose(); }
   while (towerGroup.children.length) {
     var tw = towerGroup.children[0]; towerGroup.remove(tw);
@@ -769,7 +959,15 @@ function buildObjects() {
     var tower = new THREE.Mesh(tgeo, [side, side, roof, roof, side, side]);
     var tedges = new THREE.LineSegments(BOX_EDGES, new THREE.LineBasicMaterial({ transparent: true }));
     tower.add(tedges); tower.visible = false; towerGroup.add(tower);
-    n.obj = { g: g, body: body, core: core, edges: edges, halo: halo, tower: tower, side: side, roof: roof, tedges: tedges };
+    var mA = new THREE.MeshStandardMaterial({ roughness: 0.85 }), mB = new THREE.MeshStandardMaterial({ roughness: 0.9 });
+    var toy = toyBuilding(n.cat, mA, mB); toyGroup.add(toy);
+    n.obj = { g: g, body: body, core: core, edges: edges, halo: halo, tower: tower, side: side, roof: roof, tedges: tedges, toy: toy, mA: mA, mB: mB };
+    n.card = el('div', 'card');
+    var cn = el('span', 'cn'), dot = el('i'); dot.style.color = 'var(--c-' + n.cat + ')';
+    cn.appendChild(dot); cn.appendChild(document.createTextNode(n.name));
+    n.card.appendChild(cn); n.card.appendChild(el('b', '', jobOf(n)));
+    n.card.addEventListener('click', function () { select(n.id); });
+    n.cardOn = false; n.cardF = -1; n.cslot = 0; n.cx = null; n.cw = 0; n.ch = 0;
     paintNode(n);
     var c = clusters[n.cat];
     if (!n.pos) {
@@ -778,7 +976,7 @@ function buildObjects() {
       if (reduceMotion && !sel) n.pos.add(n.home.clone().multiplyScalar(S.spread));
     }
     n.label = el('div', 'nl', n.name); n.label.style.opacity = '0'; n.lop = 0; n.lw = n.name.length * 6.7 + 2;
-    labelsEl.appendChild(n.label);
+    labelsEl.appendChild(n.label); labelsEl.appendChild(n.card);
   });
 
   CATS.forEach(function (c) {
@@ -788,6 +986,10 @@ function buildObjects() {
     ringGroup.add(cl.ring);
     cl.pad = new THREE.Mesh(PAD_GEO, new THREE.MeshBasicMaterial({ color: bgColor.clone().lerp(catColor[c.id], 0.13) }));
     cl.pad.rotation.x = -Math.PI / 2; padGroup.add(cl.pad);
+    cl.lawn = new THREE.Mesh(PAD_GEO, new THREE.MeshStandardMaterial({ roughness: 1, color: new THREE.Color(0xffffff).lerp(catColor[c.id], 0.26) }));
+    cl.lawn.rotation.x = -Math.PI / 2; cl.lawn.receiveShadow = true;
+    cl.edge = new THREE.Mesh(RING_GEO, new THREE.MeshBasicMaterial({ color: catColor[c.id] }));
+    cl.edge.rotation.x = -Math.PI / 2; lawnGroup.add(cl.lawn, cl.edge);
     cl.label = el('div', 'cl'); cl.label.style.color = 'var(--c-' + c.id + ')';
     cl.label.appendChild(document.createTextNode(c.name));
     cl.label.appendChild(el('small', '', String(cl.count))); cl.lw = c.name.length * 9.4 + 30; cl.lop = -1;
@@ -798,25 +1000,32 @@ function buildObjects() {
   linkMesh.geometry.dispose(); linkMesh.geometry = new THREE.BufferGeometry();
   linkMesh.geometry.setAttribute('position', new THREE.BufferAttribute(linkPos, 3));
   linkMesh.geometry.setAttribute('color', new THREE.BufferAttribute(linkCol, 3));
+  linkDist = new Float32Array(links.length * SEG * 2);
+  linkMesh.geometry.setAttribute('lineDistance', new THREE.BufferAttribute(linkDist, 1));
   dropPos = new Float32Array(nodes.length * 6); dropCol = new Float32Array(nodes.length * 6);
   dropMesh.geometry.dispose(); dropMesh.geometry = new THREE.BufferGeometry();
   dropMesh.geometry.setAttribute('position', new THREE.BufferAttribute(dropPos, 3));
   dropMesh.geometry.setAttribute('color', new THREE.BufferAttribute(dropCol, 3));
   pulses.length = 0;
+  buildTrees();
 }
 
 function rebuild() {
   buildGraph();
   if (sel && !byId[sel]) sel = null;
   if (linkFrom && !byId[linkFrom]) setLinkMode(null);
-  layout(); buildObjects(); renderLayers(); renderStats(); renderInspector(); renderAddForm();
-  $('#tagline').textContent = nodes.length + ' players · ' + links.length + ' links · curated snapshot, mid-2026';
+  if (editing && !byId[editing]) editing = null;
+  layout(); buildObjects(); if (follow) follow = sel ? byId[sel] : null;
+  refreshCards(); renderLayers(); renderStats(); renderInspector(); renderAddForm();
+  $('#tagline').textContent = nodes.length + ' buildings · ' + links.length + ' links · curated snapshot, mid-2026';
 }
 
 function isCity() { return S.look === 'city'; }
-function spreadNow() { return isCity() ? Math.max(0.9, S.spread) : S.spread; }
+function isToy() { return S.look === 'toy'; }
+function spreadNow() { return S.look === 'neon' ? S.spread : Math.max(0.9, S.spread); }
 function worldHome(n, out) {
   var c = clusters[n.cat].center, sp = spreadNow();
+  if (isToy()) return out.set((c.x * TOY_SCALE + n.home3.x) * sp, FLOOR + n.th + 1.5, (c.z * TOY_SCALE + n.home3.z) * sp);
   if (isCity()) return out.set((c.x + n.home2.x) * sp, FLOOR + n.h, (c.z + n.home2.z) * sp);
   return out.copy(c).multiplyScalar(sp).addScaledVector(n.home, sp);
 }
@@ -824,9 +1033,18 @@ function worldHome(n, out) {
 /* ---------- Camera ---------- */
 var W = 1, H = 1, mobile = false;
 var follow = null, zoomGoal = null, camGoal = null, viewOff = 0, viewOffGoal = 0;
+var leaders = $('#leaders'), lctx = leaders.getContext('2d'), safe = { l: 8, r: 8, t: 14, b: 8 };
+// Which buildings get a card: the busiest ones, or the selected building and its busiest neighbours.
+var cardList = [], frameNo = 0;
+function refreshCards() {
+  var max = mobile ? 3 : 6, n = sel && byId[sel];
+  function byDeg(a, b) { return b.deg - a.deg || (a.id < b.id ? -1 : 1); }
+  if (n) cardList = [n].concat(Object.keys(n.nb).map(function (id) { return byId[id]; }).sort(byDeg).slice(0, max - 1));
+  else cardList = nodes.filter(function (x) { return !hiddenCats[x.cat]; }).sort(byDeg).slice(0, max);
+}
 function homeDistance() {
   var aspect = W / H, usable = mobile ? aspect * 1.12 : Math.max(0.5, (W - 600) / H);
-  return Math.min(520, Math.max(150, 96 / (0.44 * Math.min(usable, 1.4))));
+  return Math.min(760, Math.max(150, 96 / (0.44 * Math.min(usable, 1.4)))) * (isToy() ? 1.36 : 1);
 }
 function homePosition() {
   var d = homeDistance();
@@ -842,7 +1060,9 @@ function resize() {
   renderer.setSize(W, H, false);
   if (composer) composer.setSize(W, H);
   camera.aspect = W / H; viewOff = -1; camera.updateProjectionMatrix();
-  measureCover();
+  var dpr = Math.min(window.devicePixelRatio || 1, 2);
+  leaders.width = Math.round(W * dpr); leaders.height = Math.round(H * dpr); lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  measureCover(); refreshCards();
 }
 function measureCover() {
   var cover = 0;
@@ -854,6 +1074,13 @@ function measureCover() {
     cover = $('#p-god').getBoundingClientRect().height + 14;
   }
   viewOffGoal = Math.round(cover / 2);
+  if (mobile) { safe.l = 8; safe.r = W - 8; safe.t = 78; safe.b = H - cover - 6; }
+  else {
+    var ar = app.getBoundingClientRect();
+    safe.l = document.querySelector('.col-left').getBoundingClientRect().right - ar.left + 10;
+    safe.r = document.querySelector('.col-right').getBoundingClientRect().left - ar.left - 10;
+    safe.t = 14; safe.b = H - cover - 6;
+  }
 }
 
 /* ---------- Interaction ---------- */
@@ -904,7 +1131,8 @@ function select(id) {
     follow = n; camGoal = null; zoomGoal = Math.max(46, Math.min(190, reach * 1.25 + 34)) * (mobile ? 1.5 : 1);
     if (mobile) openPanel('p-inspect');
   } else { follow = null; zoomGoal = null; }
-  renderInspector(); renderAddForm();
+  if (editing !== sel) editing = null;
+  refreshCards(); renderInspector(); renderAddForm();
 }
 
 var toastTimer = 0;
@@ -959,7 +1187,7 @@ function renderLayers() {
     b.addEventListener('click', function () {
       if (hiddenCats[c.id]) delete hiddenCats[c.id]; else hiddenCats[c.id] = 1;
       if (sel && hiddenCats[byId[sel].cat]) select(null);
-      renderLayers();
+      refreshCards(); renderLayers();
     });
     box.appendChild(b);
   });
@@ -975,7 +1203,7 @@ function renderInspector() {
   var box = $('#inspect'); box.textContent = '';
   var n = sel && byId[sel];
   if (!n) {
-    box.appendChild(el('p', 'empty', 'Nothing selected. Click a node in the galaxy, search by name, or start with one of these.'));
+    box.appendChild(el('p', 'empty', 'Nothing selected. Click a building, search by name, or start with one of these.'));
     var row = el('div', 'chips'); row.style.marginTop = '10px';
     ['openai', 'nvidia', 'claude', 'hf', 'mcp'].forEach(function (id) { if (byId[id]) row.appendChild(nodeChip(byId[id])); });
     box.appendChild(row);
@@ -988,6 +1216,8 @@ function renderInspector() {
   box.appendChild(top);
   box.appendChild(el('h2', '', n.name));
   box.appendChild(el('div', 'org', n.org + ' · ' + n.deg + (n.deg === 1 ? ' connection' : ' connections')));
+  box.appendChild(el('div', 'job', jobOf(n)));
+  if (editing === n.id) { renderEditForm(box, n); return; }
   box.appendChild(el('p', 'blurb', n.blurb));
   var groups = {};
   n.links.forEach(function (l) {
@@ -1002,12 +1232,49 @@ function renderInspector() {
     sec.appendChild(chips); box.appendChild(sec);
   });
   var act = el('div', 'actions');
+  var b0 = el('button', 'btn solid', 'Edit'); b0.type = 'button';
+  b0.addEventListener('click', function () { editing = n.id; renderInspector(); var f = document.getElementById('ed-job'); if (f) f.focus(); });
+  act.appendChild(b0);
   var b1 = el('button', 'btn', 'Link or unlink'); b1.type = 'button';
   b1.addEventListener('click', function () { setLinkMode(n.id); if (mobile) closePanels(); });
   var b2 = el('button', 'btn warn', 'Remove'); b2.type = 'button';
   b2.addEventListener('click', function () { removeNode(n.id); });
   act.appendChild(b1); act.appendChild(b2); box.appendChild(act);
   box.scrollTop = 0; $('#p-inspect .panel-b').scrollTop = 0;
+}
+
+function renderEditForm(box, n) {
+  var f = el('form', 'edit');
+  function field(label, tag, id) {
+    var l = el('label', 'fld'); l.appendChild(el('span', '', label));
+    var inp = el(tag); inp.id = id; l.appendChild(inp); f.appendChild(l); return inp;
+  }
+  var iName = field('Name', 'input', 'ed-name'); iName.type = 'text'; iName.maxLength = 32; iName.value = n.name; iName.autocomplete = 'off';
+  var iJob = field('Job', 'input', 'ed-job'); iJob.type = 'text'; iJob.maxLength = 40; iJob.value = n.job; iJob.placeholder = n.jobAuto; iJob.autocomplete = 'off';
+  var iCat = field('Layer', 'select', 'ed-cat');
+  CATS.forEach(function (c) { var o = el('option', '', c.name); o.value = c.id; iCat.appendChild(o); });
+  iCat.value = n.cat;
+  var iBlurb = field('Description', 'textarea', 'ed-blurb'); iBlurb.rows = 3; iBlurb.maxLength = 220; iBlurb.value = n.blurb;
+  var row = el('div', 'row');
+  var ok = el('button', 'btn solid', 'Save'); ok.type = 'submit'; row.appendChild(ok);
+  var no = el('button', 'btn', 'Cancel'); no.type = 'button'; no.addEventListener('click', function () { editing = null; renderInspector(); }); row.appendChild(no);
+  if (n.edited) {
+    var rs = el('button', 'btn warn', 'Undo my changes'); rs.type = 'button';
+    rs.addEventListener('click', function () { delete edits.over[n.id]; saveEdits(); editing = null; rebuild(); toast('Restored the original ' + (byId[n.id] ? byId[n.id].name : 'building') + '.', false, 2600); });
+    row.appendChild(rs);
+  }
+  f.appendChild(row);
+  f.addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = iName.value.trim().replace(/\s+/g, ' ').slice(0, 32);
+    if (!name) { toast('A building needs a name.', false, 2600); iName.focus(); return; }
+    var rec = { name: name, cat: iCat.value, job: iJob.value.trim().slice(0, 40), blurb: iBlurb.value.trim().slice(0, 220) };
+    if (n.custom) {
+      edits.added.forEach(function (a) { if (a.id === n.id) { a.name = rec.name; a.cat = rec.cat; a.job = rec.job; a.blurb = rec.blurb; } });
+    } else edits.over[n.id] = rec;
+    saveEdits(); editing = null; rebuild(); toast('Saved ' + name + '.', false, 2600);
+  });
+  box.appendChild(f);
 }
 
 var arrivals = 0, spark = [], inFlight = 0;
@@ -1044,7 +1311,7 @@ setInterval(function () {
 }, 1000);
 
 function renderAddForm() {
-  $('#add-hint').textContent = sel && byId[sel] ? 'The new player will link to ' + byId[sel].name + '.' : 'New players link to the selected node, if there is one.';
+  $('#add-hint').textContent = sel && byId[sel] ? 'The new building will link to ' + byId[sel].name + '.' : 'New buildings link to the selected node, if there is one.';
 }
 (function initGod() {
   var pals = $('#pals');
@@ -1071,13 +1338,13 @@ function renderAddForm() {
   $('#add-form').addEventListener('submit', function (e) {
     e.preventDefault();
     var name = $('#add-name').value.trim().replace(/\s+/g, ' ').slice(0, 32);
-    if (!name) { toast('Give the new player a name first.', false, 2600); $('#add-name').focus(); return; }
+    if (!name) { toast('Give the new building a name first.', false, 2600); $('#add-name').focus(); return; }
     var existing = nodes.filter(function (n) { return n.name.toLowerCase() === name.toLowerCase(); })[0];
     if (existing) { select(existing.id); toast(existing.name + ' is already on the map.', false, 2600); return; }
     var id = 'u-' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
-    edits.added.push({ id: id, name: name, cat: $('#add-cat').value });
+    edits.added.push({ id: id, name: name, cat: $('#add-cat').value, job: $('#add-job').value.trim().slice(0, 40) });
     if (sel && byId[sel]) edits.links.push([id, sel]);
-    saveEdits(); rebuild(); $('#add-name').value = '';
+    saveEdits(); rebuild(); $('#add-name').value = ''; $('#add-job').value = '';
     select(id); toast('Added ' + name + '.', false, 2600);
   });
   $('#b-home').addEventListener('click', function () { select(null); goHome(); if (mobile) closePanels(); });
@@ -1086,7 +1353,7 @@ function renderAddForm() {
     var b = $('#b-restore');
     if (!armed) { b.textContent = 'Click again to confirm'; armed = setTimeout(function () { armed = 0; b.textContent = 'Restore map'; }, 3200); return; }
     clearTimeout(armed); armed = 0; b.textContent = 'Restore map';
-    edits = { added: [], removed: [], cut: [], links: [] }; saveEdits(); hiddenCats = {}; sel = null; follow = null;
+    edits = { added: [], removed: [], cut: [], links: [], over: {} }; saveEdits(); editing = null; hiddenCats = {}; sel = null; follow = null;
     rebuild(); toast('The original map is back.', false, 2600);
   });
   var gt = $('#god-toggle');
@@ -1104,13 +1371,25 @@ function applyPalette() {
   [].forEach.call(document.querySelectorAll('#pals .pal'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.id === S.palette)); });
   readPalette(); drawSpark();
 }
+var lastLook = null, booted = false;
 function applySettings() {
   controls.autoRotate = S.spin > 0.005; controls.autoRotateSpeed = S.spin * 1.4;
-  linkMesh.material.opacity = S.links;
-  var city = isCity();
+  var city = isCity(), toy = isToy();
+  if (lastLook !== S.look) {
+    lastLook = S.look; document.documentElement.setAttribute('data-look', S.look);
+    readPalette(); drawSpark();
+    if (!toy) { nodes.forEach(function (n) { if (n.cardOn) { n.card.style.display = 'none'; n.cardOn = false; n.cx = null; } }); lctx.clearRect(0, 0, W, H); }
+    if (booted) { measureCover(); if (!sel) goHome(); }
+  }
+  linkMesh.material = toy ? linkMatDash : linkMatGlow; linkMesh.material.opacity = toy ? Math.min(1, S.links * 1.5) : S.links;
+  pulseMesh.material = toy ? pulseMatDot : pulseMatGlow;
   if (bloom) { bloom.strength = S.glow * (city ? 0.62 : 1); bloom.threshold = city ? 0.2 : 0.1; }
-  grid.visible = !!S.grid;
-  ground.visible = city; padGroup.visible = city; towerGroup.visible = city; dropMesh.visible = !city;
+  grid.visible = !!S.grid && !toy; stars.visible = !toy;
+  ground.visible = city; padGroup.visible = city; towerGroup.visible = city; dropMesh.visible = S.look === 'neon';
+  toyGroup.visible = lawnGroup.visible = treeGroup.visible = slab.visible = toy;
+  sun.castShadow = toy;
+  hemi.intensity = toy ? 0.74 : 0.95; sun.intensity = toy ? 0.42 : 0.85;
+  hemi.color.set(toy ? 0xffffff : 0xc4d2ff); hemi.groundColor.set(toy ? 0xdedcd4 : 0x080810);
   scene.fog = city ? fog : null;
   [].forEach.call(document.querySelectorAll('#looks .pal'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.look === S.look)); });
 }
@@ -1124,7 +1403,7 @@ function showResults() {
   resultList = nodes.filter(function (n) { return n.name.toLowerCase().indexOf(q) >= 0 || n.org.toLowerCase().indexOf(q) >= 0; })
     .sort(function (a, b) { return (a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) - (b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) || b.deg - a.deg; }).slice(0, 7);
   resultIdx = 0;
-  if (!resultList.length) { var li0 = el('li', 'none', 'No player by that name. Add it in God mode.'); resultsEl.appendChild(li0); }
+  if (!resultList.length) { var li0 = el('li', 'none', 'No building by that name. Add it in God mode.'); resultsEl.appendChild(li0); }
   resultList.forEach(function (n, i) {
     var li = el('li'), b = el('button', i === 0 ? 'on' : ''); b.type = 'button'; b.innerHTML = glyph(n.cat);
     b.appendChild(el('span', '', n.name));
@@ -1180,14 +1459,14 @@ function frame(now) {
   if (document.hidden) { last = now; return; }
   var dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
   var ease = 1 - Math.exp(-dt * 5), easeK = 1 - Math.exp(-dt * 9);
-  var selNode = sel && byId[sel], sp = spreadNow(), city = isCity(), i, n, l;
+  var selNode = sel && byId[sel], sp = spreadNow(), city = isCity(), toy = isToy(), tall = city || toy, i, n, l;
 
   // nodes
   for (i = 0; i < nodes.length; i++) {
     n = nodes[i];
     var c = clusters[n.cat];
     worldHome(n, tmp);
-    if (!reduceMotion && !city) tmp.y += Math.sin(time * 0.6 + n.phase) * 0.6;
+    if (!reduceMotion && !tall) tmp.y += Math.sin(time * 0.6 + n.phase) * 0.6;
     n.pos.lerp(tmp, ease);
     var hid = !!hiddenCats[n.cat];
     var lit = !selNode || n === selNode || selNode.nb[n.id];
@@ -1195,7 +1474,7 @@ function frame(now) {
     n.k += (kt - n.k) * easeK;
     n.flash *= Math.exp(-dt * 4);
     var o = n.obj;
-    o.g.visible = n.k > 0.015;
+    o.g.visible = n.k > 0.015 && !toy;
     o.g.position.copy(n.pos);
     var boost = (n === selNode ? 0.2 : 0) + (hover === n.id ? 0.22 : 0) + n.flash * 0.3;
     o.g.scale.setScalar(n.r * (1 + boost));
@@ -1215,6 +1494,13 @@ function frame(now) {
       o.roof.color.copy(catColor[n.cat]).multiplyScalar(Math.min(1.15, (0.7 + n.flash * 0.5 + lift * 0.35) * n.k));
       o.tedges.material.opacity = 0.6 * n.k;
     }
+    if (toy) {
+      o.toy.visible = n.k > 0.015;
+      o.toy.position.set(n.pos.x, FLOOR, n.pos.z);
+      o.toy.scale.setScalar(n.u * (1 + (n === selNode ? 0.08 : 0) + (hover === n.id ? 0.06 : 0) + n.flash * 0.04));
+      var kk = Math.min(1, n.k);
+      o.mA.color.copy(dimGrey).lerp(catColor[n.cat], kk); o.mB.color.copy(dimGrey).lerp(bodyWhite, kk);
+    }
     // drop line to the grid
     var d6 = i * 6, cc = catColor[n.cat], dk = 0.5 * n.k;
     dropPos[d6] = n.pos.x; dropPos[d6 + 1] = n.pos.y - n.r; dropPos[d6 + 2] = n.pos.z;
@@ -1233,29 +1519,44 @@ function frame(now) {
     cl.pad.position.set(cl.center.x * sp, FLOOR + 0.03, cl.center.z * sp);
     cl.pad.scale.setScalar(cl.R2 * sp);
     cl.pad.visible = cl.ring.visible;
+    if (toy) {
+      cl.ring.visible = false;
+      cl.lawn.visible = cl.edge.visible = !hiddenCats[CATS[i].id] && cl.count > 0;
+      cl.lawn.position.set(cl.center.x * TOY_SCALE * sp, FLOOR + 0.05, cl.center.z * TOY_SCALE * sp); cl.lawn.scale.setScalar(cl.R3 * sp);
+      cl.edge.position.copy(cl.lawn.position); cl.edge.position.y += 0.05; cl.edge.scale.setScalar(cl.R3 * sp);
+    }
+  }
+
+  slab.scale.set(sp, 1, sp);
+  selRing.visible = toy && !!selNode;
+  if (toy) {
+    for (i = 0; i < treeGroup.children.length; i++) { var tr = treeGroup.children[i]; tr.position.set(tr.userData.x * sp, FLOOR, tr.userData.z * sp); }
+    if (selNode) { selRing.position.set(selNode.pos.x, FLOOR + 0.16, selNode.pos.z); selRing.scale.setScalar(selNode.u * 3.1); selRing.material.color.copy(catColor[selNode.cat]); }
   }
 
   // links
   for (i = 0; i < links.length; i++) {
     l = links[i];
     var A = l.a.pos, B = l.b.pos, lhid = hiddenCats[l.a.cat] || hiddenCats[l.b.cat];
-    var lt = lhid ? 0 : (!selNode ? 0.5 : (l.a === selNode || l.b === selNode ? 1.5 : 0.035));
+    var lt = lhid ? 0 : (!selNode ? (toy ? 0.13 : 0.5) : (l.a === selNode || l.b === selNode ? 1.5 : (toy ? 0.05 : 0.035)));
     l.k += (lt - l.k) * easeK;
     var len = A.distanceTo(B);
     ctl.addVectors(A, B).multiplyScalar(0.5); ctl.y += len * 0.2 + 2; l.cx = ctl.x; l.cy = ctl.y; l.cz = ctl.z;
     var ca = catColor[l.a.cat], cb = catColor[l.b.cat], base = i * SEG * 6;
-    var px = A.x, py = A.y, pz = A.z, pr = ca.r * l.k, pg = ca.g * l.k, pb = ca.b * l.k;
+    var lk = toy ? Math.min(1, l.k) : l.k, b0 = toy ? 1 - lk : 0, br = bgColor.r * b0, bgn = bgColor.g * b0, bb = bgColor.b * b0, acc = 0;
+    var px = A.x, py = A.y, pz = A.z, pr = ca.r * lk + br, pg = ca.g * lk + bgn, pb = ca.b * lk + bb;
     for (var s = 1; s <= SEG; s++) {
       var t = s / SEG, u = 1 - t, w0 = u * u, w1 = 2 * u * t, w2 = t * t;
       var x = w0 * A.x + w1 * ctl.x + w2 * B.x, y = w0 * A.y + w1 * ctl.y + w2 * B.y, z = w0 * A.z + w1 * ctl.z + w2 * B.z;
-      var r = (ca.r * u + cb.r * t) * l.k, g = (ca.g * u + cb.g * t) * l.k, b = (ca.b * u + cb.b * t) * l.k;
+      var r = (ca.r * u + cb.r * t) * lk + br, g = (ca.g * u + cb.g * t) * lk + bgn, b = (ca.b * u + cb.b * t) * lk + bb;
       var q = base + (s - 1) * 6;
       linkPos[q] = px; linkPos[q + 1] = py; linkPos[q + 2] = pz; linkPos[q + 3] = x; linkPos[q + 4] = y; linkPos[q + 5] = z;
       linkCol[q] = pr; linkCol[q + 1] = pg; linkCol[q + 2] = pb; linkCol[q + 3] = r; linkCol[q + 4] = g; linkCol[q + 5] = b;
+      if (toy) { var qd = (i * SEG + s - 1) * 2; linkDist[qd] = acc; acc += Math.sqrt((x - px) * (x - px) + (y - py) * (y - py) + (z - pz) * (z - pz)); linkDist[qd + 1] = acc; }
       px = x; py = y; pz = z; pr = r; pg = g; pb = b;
     }
   }
-  if (links.length) { linkMesh.geometry.attributes.position.needsUpdate = true; linkMesh.geometry.attributes.color.needsUpdate = true; }
+  if (links.length) { linkMesh.geometry.attributes.position.needsUpdate = true; linkMesh.geometry.attributes.color.needsUpdate = true; if (toy) linkMesh.geometry.attributes.lineDistance.needsUpdate = true; }
 
   // signals
   var want = links.length ? Math.min(MAXP, Math.round(S.signals)) : 0;
@@ -1269,7 +1570,7 @@ function frame(now) {
       p.t += p.sp * dt;
       if (p.t >= 1) { arrivals++; (p.rev ? p.l.a : p.l.b).flash = Math.min(1, (p.rev ? p.l.a : p.l.b).flash + 0.6); spawnPulse(p); }
     }
-    if (!p.l) { pulseCol[i3] = pulseCol[i3 + 1] = pulseCol[i3 + 2] = 0; continue; }
+    if (!p.l) { pulseCol[i3] = pulseCol[i3 + 1] = pulseCol[i3 + 2] = 0; pulsePos[i3 + 1] = -99999; continue; }
     inFlight++;
     l = p.l; var tt = p.rev ? 1 - p.t : p.t, uu = 1 - tt, a0 = uu * uu, a1 = 2 * uu * tt, a2 = tt * tt;
     pulsePos[i3] = a0 * l.a.pos.x + a1 * l.cx + a2 * l.b.pos.x;
@@ -1277,7 +1578,10 @@ function frame(now) {
     pulsePos[i3 + 2] = a0 * l.a.pos.z + a1 * l.cz + a2 * l.b.pos.z;
     var pc = catColor[(p.rev ? l.b : l.a).cat], pk = Math.min(1, l.k * 2.2) * Math.sin(Math.PI * Math.min(1, p.t)) ;
     pk = 0.25 + 0.75 * pk; pk *= Math.min(1, l.k * 2.2);
-    pulseCol[i3] = pc.r * pk; pulseCol[i3 + 1] = pc.g * pk; pulseCol[i3 + 2] = pc.b * pk;
+    if (toy) {
+      pk = Math.min(1, l.k * 5);
+      pulseCol[i3] = bgColor.r + (pc.r - bgColor.r) * pk; pulseCol[i3 + 1] = bgColor.g + (pc.g - bgColor.g) * pk; pulseCol[i3 + 2] = bgColor.b + (pc.b - bgColor.b) * pk;
+    } else { pulseCol[i3] = pc.r * pk; pulseCol[i3 + 1] = pc.g * pk; pulseCol[i3 + 2] = pc.b * pk; }
   }
   pulseGeo.setDrawRange(0, pulses.length);
   pulseGeo.attributes.position.needsUpdate = true; pulseGeo.attributes.color.needsUpdate = true;
@@ -1304,7 +1608,7 @@ function frame(now) {
   controls.update();
   grid.material.uniforms.uTime.value = reduceMotion ? 0 : time;
 
-  if (composer) composer.render(); else renderer.render(scene, camera);
+  if (composer && !toy) composer.render(); else renderer.render(scene, camera);
 
   // labels and pick cache
   var pxPerUnit = H / (2 * Math.tan(camera.fov * Math.PI / 360));
@@ -1313,7 +1617,8 @@ function frame(now) {
   nPlaced = 0; cand.length = 0;
   for (i = 0; i < CATS.length; i++) {
     var c2 = clusters[CATS[i].id];
-    if (city) tmp.set(c2.center.x * sp, FLOOR + c2.H + 9, c2.center.z * sp);
+    if (toy) tmp.set(c2.center.x * TOY_SCALE * sp, FLOOR + c2.H3 + 8, c2.center.z * TOY_SCALE * sp);
+    else if (city) tmp.set(c2.center.x * sp, FLOOR + c2.H + 9, c2.center.z * sp);
     else { tmp.copy(c2.center).multiplyScalar(sp); tmp.y += c2.R * sp * 0.62 + 5; }
     tmp.project(camera);
     var show = tmp.z < 1 && tmp.z > -1 && !hiddenCats[CATS[i].id] && c2.count > 0;
@@ -1324,15 +1629,22 @@ function frame(now) {
     c2.label.style.transform = 'translate(-50%,-50%) translate(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px)';
     if (!selNode) place(cx - c2.lw / 2, cy - 9, c2.lw, 18);
   }
+  frameNo++;
+  var cards = null;
+  if (toy) {
+    cards = cardList;
+    if (hover && byId[hover] && cards.indexOf(byId[hover]) < 0) cards = cards.concat([byId[hover]]);
+    for (i = 0; i < cards.length; i++) cards[i].cardF = frameNo;
+  }
   for (i = 0; i < nodes.length; i++) {
     n = nodes[i];
     tmp.copy(n.pos).project(camera);
     n.dist = camera.position.distanceTo(n.pos);
     n.sx = (tmp.x * 0.5 + 0.5) * W; n.sy = (-tmp.y * 0.5 + 0.5) * H;
-    n.sr = (city ? n.w * 0.62 : n.r) * pxPerUnit / Math.max(n.dist, 0.001);
+    n.sr = (toy ? n.u * 1.9 : city ? n.w * 0.62 : n.r) * pxPerUnit / Math.max(n.dist, 0.001);
     n.bx = n.sx; n.by = n.sy;
-    if (city) { tmp2.set(n.pos.x, FLOOR, n.pos.z).project(camera); n.bx = (tmp2.x * 0.5 + 0.5) * W; n.by = (-tmp2.y * 0.5 + 0.5) * H; }
-    var onscreen = tmp.z < 1 && tmp.z > -1 && (!city || tmp2.z < 1) && n.sx > -40 && n.sx < W + 40 && n.sy > -20 && n.sy < H + 20;
+    if (tall) { tmp2.set(n.pos.x, FLOOR, n.pos.z).project(camera); n.bx = (tmp2.x * 0.5 + 0.5) * W; n.by = (-tmp2.y * 0.5 + 0.5) * H; }
+    var onscreen = tmp.z < 1 && tmp.z > -1 && (!tall || tmp2.z < 1) && n.sx > -40 && n.sx < W + 40 && n.sy > -20 && n.sy < H + 20;
     n.vis = onscreen && n.k > 0.05;
     var op = 0;
     if (n.vis) {
@@ -1340,10 +1652,13 @@ function frame(now) {
       else if (selNode) op = selNode.nb[n.id] ? 0.95 : 0;
       else if (S.labels) op = n.deg >= 9 ? 0.92 : Math.max(0, Math.min(0.9, (far - n.dist) / (far - near)));
     }
+    if (n.cardF === frameNo) op = 0;
+    else if (n.cardOn) { n.card.style.display = 'none'; n.cardOn = false; n.cx = null; }
     n.op = op;
     n.pri = (n === selNode || hover === n.id ? 1e4 : 0) + (n.lop > 0 ? 30 : 0) + n.deg + op;
     if (op >= 0.03) cand.push(n); else if (n.lop !== 0) { n.label.style.opacity = '0'; n.lop = 0; }
   }
+  if (toy) placeCards(cards, selNode, 1 - Math.exp(-dt * 10));
   cand.sort(function (a, b) { return b.pri - a.pri; });
   for (i = 0; i < cand.length; i++) {
     n = cand[i];
@@ -1352,6 +1667,41 @@ function frame(now) {
     var fop = free ? n.op : 0;
     if (Math.abs(fop - n.lop) > 0.02) { n.label.style.opacity = fop.toFixed(2); n.lop = fop; }
     if (free) n.label.style.transform = 'translate(' + lx.toFixed(1) + 'px,' + ly.toFixed(1) + 'px)';
+  }
+}
+// Cards sit beside their building and point at it with a dotted leader, like a labelled model.
+var SLOTS = [[1, -0.9], [1, 0.4], [-1, -0.9], [-1, 0.4], [0.3, -1.7], [-0.3, -1.7], [1.5, -1.8], [-1.5, -1.8], [1.6, 1.3], [-1.6, 1.3]], slotX = 0, slotY = 0;
+function slotPos(n, idx, side) {
+  var sl = SLOTS[idx];
+  slotX = Math.max(safe.l, Math.min(safe.r - n.cw, n.sx + side * sl[0] * (n.cw / 2 + 46) - n.cw / 2));
+  slotY = Math.max(safe.t, Math.min(safe.b - n.ch, n.sy + sl[1] * 58 - n.ch / 2));
+}
+function placeCards(cards, selNode, easeC) {
+  var i, n, c;
+  lctx.clearRect(0, 0, W, H);
+  lctx.lineCap = 'round';
+  for (i = 0; i < cards.length; i++) {
+    n = cards[i];
+    if (!n.vis) { if (n.cardOn) { n.card.style.display = 'none'; n.cardOn = false; n.cx = null; } continue; }
+    if (!n.cardOn) { n.card.style.display = 'block'; n.cardOn = true; n.cw = n.card.offsetWidth; n.ch = n.card.offsetHeight; }
+    var side = n.sx < (safe.l + safe.r) / 2 ? -1 : 1, done = false;
+    for (c = 0; c < SLOTS.length && !done; c++) {
+      var idx = (n.cslot + c) % SLOTS.length; slotPos(n, idx, side);
+      if (n.sx > slotX - 12 && n.sx < slotX + n.cw + 12 && n.sy > slotY - 12 && n.sy < slotY + n.ch + 12) continue;
+      if (place(slotX - 5, slotY - 5, n.cw + 10, n.ch + 10)) { n.cslot = idx; done = true; }
+    }
+    if (!done) {
+      if (n !== selNode && hover !== n.id) { if (n.cardOn) { n.card.style.display = 'none'; n.cardOn = false; n.cx = null; } continue; }
+      slotPos(n, n.cslot, side);
+    }
+    if (n.cx == null) { n.cx = slotX; n.cy = slotY; } else { n.cx += (slotX - n.cx) * easeC; n.cy += (slotY - n.cy) * easeC; }
+    n.card.style.transform = 'translate(' + n.cx.toFixed(1) + 'px,' + n.cy.toFixed(1) + 'px)';
+    var px = Math.max(n.cx, Math.min(n.cx + n.cw, n.sx)), py = Math.max(n.cy, Math.min(n.cy + n.ch, n.sy));
+    lctx.setLineDash([0.1, 7]); lctx.lineWidth = 3; lctx.strokeStyle = cssCat[n.cat];
+    lctx.beginPath(); lctx.moveTo(px, py); lctx.lineTo(n.sx, n.sy); lctx.stroke();
+    lctx.setLineDash([]);
+    lctx.fillStyle = cssCache.card; lctx.beginPath(); lctx.arc(n.sx, n.sy, 8.5, 0, 6.283); lctx.fill();
+    lctx.fillStyle = cssCat[n.cat]; lctx.beginPath(); lctx.arc(n.sx, n.sy, 5.5, 0, 6.283); lctx.fill();
   }
 }
 var cand = [], placed = new Float32Array(4 * 160), nPlaced = 0;
@@ -1372,6 +1722,7 @@ resize();
 camera.position.copy(homePosition());
 if (window.ResizeObserver) new ResizeObserver(resize).observe(app); else window.addEventListener('resize', resize);
 drawSpark();
+booted = true;
 requestAnimationFrame(frame);
 })();
 </script>
