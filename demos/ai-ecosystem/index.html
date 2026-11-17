@@ -1,0 +1,1280 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AI Ecosystem Galaxy</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout: one full-bleed WebGL scene. HUD panels dock left (layers), right (inspector, stats)
+   and bottom (god mode); on phones they become bottom sheets behind a tab bar.
+   Single dark look by choice: this is a neon grid. Palettes swap the tokens below. */
+:root{
+  color-scheme:dark;
+  --bg:#05030f; --panel:rgba(9,7,26,.74); --line:rgba(34,230,255,.3); --fg:#eaf6ff; --dim:#93a6c8;
+  --accent:#22e6ff; --accent2:#ff2bd6; --grid:#2b55ff;
+  --c-chips:#ffb000; --c-cloud:#3d8bff; --c-frontier:#22e6ff; --c-apps:#f4ff4a;
+  --c-agents:#ff6a3d; --c-tools:#a970ff; --c-open:#39ff88; --c-labs:#ff2bd6;
+  --f-display:'Chakra Petch','Trebuchet MS',sans-serif;
+  --f-body:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --f-mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
+}
+:root[data-palette="terminal"]{
+  --bg:#020a05; --panel:rgba(3,16,9,.76); --line:rgba(61,255,122,.3); --fg:#e4ffe9; --dim:#86b094;
+  --accent:#3dff7a; --accent2:#c8ff3c; --grid:#11a04a;
+  --c-chips:#e6ff6a; --c-cloud:#4de8ff; --c-frontier:#3dff7a; --c-apps:#d6ffe6;
+  --c-agents:#c8ff3c; --c-tools:#00e6c0; --c-open:#12c96a; --c-labs:#7affc8;
+}
+:root[data-palette="sodium"]{
+  --bg:#0b0502; --panel:rgba(22,11,3,.76); --line:rgba(255,176,0,.32); --fg:#fff3e0; --dim:#c2a184;
+  --accent:#ffb000; --accent2:#ff5a1f; --grid:#b34a00;
+  --c-chips:#ffe9a8; --c-cloud:#ff9a4d; --c-frontier:#ffb000; --c-apps:#fff1d0;
+  --c-agents:#ff4a2b; --c-tools:#e88504; --c-open:#ffd24a; --c-labs:#ff7a1a;
+}
+:root[data-palette="ultraviolet"]{
+  --bg:#07031a; --panel:rgba(14,7,38,.76); --line:rgba(179,136,255,.34); --fg:#f1eaff; --dim:#a79bcf;
+  --accent:#b388ff; --accent2:#ff5cf0; --grid:#5a2bd6;
+  --c-chips:#e0b3ff; --c-cloud:#5c8dff; --c-frontier:#b388ff; --c-apps:#ffd0fb;
+  --c-agents:#ff8ad8; --c-tools:#7c5cff; --c-open:#4dd0ff; --c-labs:#ff5cf0;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+#app{position:relative;height:100%;overflow:hidden}
+#scene{position:absolute;inset:0;width:100%;height:100%;display:block;outline:none}
+#labels{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+#app::after{content:"";position:absolute;inset:0 0 auto;height:110px;pointer-events:none;background:linear-gradient(color-mix(in srgb,var(--bg) 82%,transparent),transparent)}
+.nl,.cl{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform,opacity;text-shadow:0 0 6px var(--bg),0 0 3px var(--bg),0 0 1px var(--bg)}
+.nl{font:500 11px/1 var(--f-mono);color:var(--fg);transition:opacity .22s}
+.cl{font:600 11px/1 var(--f-display);letter-spacing:.2em;text-transform:uppercase}
+.cl small{font:400 10px/1 var(--f-mono);letter-spacing:0;opacity:.75;margin-left:.6em}
+
+.hud{position:absolute;inset:0;z-index:2;display:grid;grid-template-columns:minmax(0,256px) minmax(0,1fr) minmax(0,300px);gap:14px;
+  padding-block:14px;padding-left:var(--gl);padding-right:var(--gr);pointer-events:none}
+.col{display:flex;flex-direction:column;gap:12px;min-height:0;min-width:0}
+.col>*{pointer-events:auto}
+.col-mid{justify-content:flex-end;align-items:center}
+
+.brand h1{margin:0 0 9px;font:700 19px/1.05 var(--f-display);letter-spacing:.14em;text-transform:uppercase;text-wrap:balance;
+  text-shadow:0 0 18px color-mix(in srgb,var(--accent) 60%,transparent)}
+.brand h1 b{color:var(--accent);font-weight:700}
+.brand p{margin:6px 0 10px;font:400 11px/1.4 var(--f-mono);color:var(--dim);font-variant-numeric:tabular-nums}
+.search{position:relative}
+.search input{width:100%;padding:8px 10px;background:var(--panel);border:1px solid var(--line);border-radius:0;font:400 13px var(--f-mono);outline:none}
+.search input::placeholder{color:var(--dim)}
+.search input:focus-visible{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.results{position:absolute;left:0;right:0;top:100%;margin:2px 0 0;padding:4px;list-style:none;background:var(--bg);border:1px solid var(--line);z-index:5;max-height:240px;overflow:auto}
+.results button{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;background:none;border:0;text-align:left;cursor:pointer;font:400 12px var(--f-mono)}
+.results button:hover,.results button:focus-visible,.results button.on{background:color-mix(in srgb,var(--accent) 16%,transparent);outline:none}
+.results .none{padding:6px 8px;color:var(--dim);font:400 12px var(--f-mono)}
+
+.panel{display:flex;flex-direction:column;min-height:0;background:var(--panel);border:1px solid var(--line);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px))}
+.panel-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px 7px;
+  font:600 11px/1 var(--f-display);letter-spacing:.2em;text-transform:uppercase;color:var(--accent)}
+.panel-h span+span,.panel-h small{font:400 10px/1 var(--f-mono);letter-spacing:0;text-transform:none;color:var(--dim)}
+.panel-b{padding:2px 12px 14px;overflow:auto;min-height:0;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+#p-layers{flex:0 1 auto}
+#p-inspect{flex:0 1 auto}
+#p-stats{flex:0 0 auto}
+#p-god{width:100%;max-width:760px}
+
+.glyph{flex:none;width:14px;height:14px;display:block}
+.layer{display:grid;grid-template-columns:14px minmax(0,1fr) auto;align-items:center;gap:9px;width:100%;padding:5px 0;background:none;border:0;cursor:pointer;text-align:left}
+.layer .nm{font:500 12.5px/1.2 var(--f-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.layer .ct{font:400 11px var(--f-mono);color:var(--dim);font-variant-numeric:tabular-nums}
+.layer .bar{grid-column:2/4;height:2px;background:color-mix(in srgb,var(--fg) 10%,transparent)}
+.layer .bar i{display:block;height:100%;background:currentColor;box-shadow:0 0 6px currentColor}
+.layer[aria-pressed="false"]{opacity:.38}
+.layer[aria-pressed="false"] .nm{text-decoration:line-through}
+.layer:focus-visible,.chip:focus-visible,.btn:focus-visible,.pal:focus-visible,.tab:focus-visible,.x:focus-visible,.hub:focus-visible{outline:1px solid var(--accent);outline-offset:2px}
+.hint{margin:8px 0 0;font:400 11px/1.45 var(--f-mono);color:var(--dim)}
+
+.ins-top{display:flex;align-items:center;gap:8px;font:400 11px var(--f-mono);color:var(--dim)}
+.ins-top .x{margin-left:auto}
+.x{background:none;border:1px solid var(--line);width:24px;height:24px;line-height:1;cursor:pointer;color:var(--dim);font:400 14px var(--f-mono)}
+.x:hover{color:var(--fg);border-color:var(--accent)}
+#p-inspect h2{margin:8px 0 2px;font:700 22px/1.1 var(--f-display);letter-spacing:.02em;text-wrap:balance;overflow-wrap:anywhere}
+.org{font:400 11.5px var(--f-mono);color:var(--dim)}
+.blurb{margin:9px 0 4px;font-size:13.5px;max-width:65ch}
+.rel{margin-top:11px}
+.rel h3{margin:0 0 5px;font:600 10px/1 var(--f-display);letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:4px 8px 4px 6px;background:color-mix(in srgb,var(--fg) 5%,transparent);
+  border:1px solid color-mix(in srgb,var(--fg) 16%,transparent);cursor:pointer;font:400 11.5px var(--f-mono)}
+.chip span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
+.btn{padding:6px 10px;background:none;border:1px solid var(--line);cursor:pointer;font:500 11px var(--f-display);letter-spacing:.1em;text-transform:uppercase}
+.btn:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)}
+.btn.warn:hover{border-color:var(--accent2);background:color-mix(in srgb,var(--accent2) 16%,transparent)}
+.btn.solid{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:700}
+.btn.solid:hover{filter:brightness(1.15)}
+.empty{margin:4px 0 0;color:var(--dim);font-size:13px}
+
+.figs{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+.fig b{display:block;font:600 20px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.fig span{font:400 10.5px var(--f-mono);color:var(--dim)}
+.spark{margin-top:11px}
+.spark canvas{display:block;width:100%;height:42px}
+.spark p,.hubs h3{margin:0 0 4px;font:600 10px/1 var(--f-display);letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.hubs{margin-top:11px}
+.hub{display:grid;grid-template-columns:14px minmax(0,1fr) 26px;align-items:center;gap:8px;width:100%;padding:3px 0;background:none;border:0;cursor:pointer;text-align:left;font:400 12px var(--f-mono)}
+.hub .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hub .ct{text-align:right;color:var(--dim);font-variant-numeric:tabular-nums}
+.hub:hover .nm{color:var(--accent)}
+
+.god{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px 20px}
+.grp h3{margin:0 0 7px;font:600 10px/1 var(--f-display);letter-spacing:.18em;text-transform:uppercase;color:var(--dim)}
+.pals{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.pal{display:flex;align-items:center;gap:6px;padding:5px 6px;background:none;border:1px solid color-mix(in srgb,var(--fg) 16%,transparent);cursor:pointer;font:400 10.5px var(--f-mono);min-width:0}
+.pal i{flex:none;width:14px;height:10px}
+.pal[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.sl{display:grid;grid-template-columns:54px minmax(0,1fr);align-items:center;gap:8px;font:400 11px var(--f-mono);color:var(--dim);margin-bottom:3px}
+.sl input{width:100%;accent-color:var(--accent);height:16px;margin:0}
+.tog{display:flex;gap:14px;margin-top:6px;font:400 11px var(--f-mono)}
+.tog label{display:flex;align-items:center;gap:6px;cursor:pointer}
+.tog input{accent-color:var(--accent);margin:0}
+.add{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px}
+.add .row{grid-column:1/3}
+.add input,.add select{width:100%;padding:6px 8px;background:color-mix(in srgb,var(--fg) 5%,transparent);border:1px solid color-mix(in srgb,var(--fg) 18%,transparent);border-radius:0;font:400 12px var(--f-mono);outline:none}
+.add select option{background:var(--bg);color:var(--fg)}
+.add input:focus-visible,.add select:focus-visible{border-color:var(--accent)}
+.row{display:flex;flex-wrap:wrap;gap:6px}
+#p-god.collapsed .panel-b{display:none}
+#god-toggle{background:none;border:0;cursor:pointer;color:var(--dim);font:400 10px var(--f-mono);padding:2px 0}
+#god-toggle:hover{color:var(--fg)}
+
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;align-items:center;gap:10px;max-width:min(92%,460px);
+  padding:8px 12px;background:var(--bg);border:1px solid var(--accent2);font:400 12px var(--f-mono);pointer-events:auto;z-index:6}
+.tabs{display:none}
+.fallback{position:absolute;inset:0;display:grid;place-items:center;padding:24px;text-align:center;color:var(--dim)}
+
+@media (max-width:860px){
+  .hud{display:block;padding-block:10px}
+  .col{display:contents}
+  .brand{pointer-events:auto;position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:4px 12px;align-items:center}
+  .brand h1{font-size:14px;margin:0}
+  .brand p{grid-column:1/3;grid-row:2;margin:0;font-size:10px}
+  .panel{position:absolute;left:var(--gl);right:var(--gr);bottom:62px;max-height:50%;display:none;pointer-events:auto}
+  .panel.open{display:flex}
+  #p-god{max-width:none;width:auto}
+  #p-god.collapsed .panel-b{display:block}
+  #god-toggle{display:none}
+  .tabs{position:absolute;left:var(--gl);right:var(--gr);bottom:10px;display:grid;grid-template-columns:repeat(4,1fr);gap:6px;pointer-events:auto}
+  .tab{padding:11px 4px;background:var(--panel);border:1px solid var(--line);cursor:pointer;font:600 10.5px/1 var(--f-display);letter-spacing:.12em;text-transform:uppercase;
+    -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+  .tab[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+  .toast{top:64px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div id="app">
+  <canvas id="scene" aria-label="3D map of the AI ecosystem. Drag to orbit, scroll or pinch to zoom, click a node to inspect it."></canvas>
+  <div id="labels" aria-hidden="true"></div>
+
+  <div class="hud">
+    <div class="col col-left">
+      <header class="brand">
+        <h1>AI Ecosystem <b>Galaxy</b></h1>
+        <div class="search">
+          <input id="q" type="search" placeholder="Find a player" autocomplete="off" spellcheck="false" aria-label="Find a player by name" aria-controls="q-results">
+          <ul class="results" id="q-results" hidden></ul>
+        </div>
+        <p id="tagline">Curated snapshot, mid-2026</p>
+      </header>
+
+      <section class="panel" id="p-layers" aria-label="Layers">
+        <div class="panel-h"><span>Layers</span><span>click to hide</span></div>
+        <div class="panel-b">
+          <div id="layers"></div>
+          <p class="hint">Drag to orbit. Scroll or pinch to zoom. Click a node to inspect it.</p>
+        </div>
+      </section>
+    </div>
+
+    <div class="col col-mid">
+      <section class="panel" id="p-god" aria-label="God mode">
+        <div class="panel-h"><span>God mode</span><button id="god-toggle" type="button" aria-expanded="true">hide</button></div>
+        <div class="panel-b">
+          <div class="god">
+            <div class="grp">
+              <h3>Palette</h3>
+              <div class="pals" id="pals"></div>
+              <div class="tog">
+                <label><input type="checkbox" id="t-labels" checked> Labels</label>
+                <label><input type="checkbox" id="t-grid" checked> Grid</label>
+              </div>
+            </div>
+            <div class="grp">
+              <h3>Tune</h3>
+              <label class="sl">Spin <input type="range" id="s-spin" min="0" max="1" step="0.01"></label>
+              <label class="sl">Signals <input type="range" id="s-signals" min="0" max="600" step="10"></label>
+              <label class="sl">Links <input type="range" id="s-links" min="0" max="1" step="0.01"></label>
+              <label class="sl">Spread <input type="range" id="s-spread" min="0.6" max="1.6" step="0.01"></label>
+              <label class="sl">Glow <input type="range" id="s-glow" min="0" max="2" step="0.01"></label>
+            </div>
+            <div class="grp">
+              <h3>Add a player</h3>
+              <form class="add" id="add-form">
+                <input id="add-name" type="text" maxlength="32" placeholder="Name" aria-label="Name of the new player" autocomplete="off">
+                <select id="add-cat" aria-label="Layer for the new player"></select>
+                <div class="row">
+                  <button class="btn solid" type="submit">Add</button>
+                  <button class="btn" type="button" id="b-home">Reset view</button>
+                  <button class="btn warn" type="button" id="b-restore">Restore map</button>
+                </div>
+              </form>
+              <p class="hint" id="add-hint">New players link to the selected node, if there is one.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="col col-right">
+      <section class="panel" id="p-inspect" aria-label="Inspector" aria-live="polite">
+        <div class="panel-h"><span>Inspector</span></div>
+        <div class="panel-b" id="inspect"></div>
+      </section>
+
+      <section class="panel" id="p-stats" aria-label="Live stats">
+        <div class="panel-h"><span>Live stats</span></div>
+        <div class="panel-b">
+          <div class="figs">
+            <div class="fig"><b id="f-nodes">0</b><span>players</span></div>
+            <div class="fig"><b id="f-links">0</b><span>links</span></div>
+            <div class="fig"><b id="f-flight">0</b><span>signals in flight</span></div>
+            <div class="fig"><b id="f-avg">0</b><span>links per player</span></div>
+          </div>
+          <div class="spark">
+            <p>Signals arriving per second</p>
+            <canvas id="spark" width="552" height="84"></canvas>
+          </div>
+          <div class="hubs">
+            <h3>Most connected</h3>
+            <div id="hubs"></div>
+          </div>
+          <p class="hint">Signals are ambient animation, not measured traffic.</p>
+        </div>
+      </section>
+    </div>
+
+    <nav class="tabs" aria-label="Panels">
+      <button class="tab" type="button" data-panel="p-layers" aria-pressed="false">Layers</button>
+      <button class="tab" type="button" data-panel="p-inspect" aria-pressed="false">Inspect</button>
+      <button class="tab" type="button" data-panel="p-stats" aria-pressed="false">Stats</button>
+      <button class="tab" type="button" data-panel="p-god" aria-pressed="false">God mode</button>
+    </nav>
+
+    <div class="toast" id="toast" role="status" hidden><span id="toast-msg"></span><button class="btn" type="button" id="toast-btn" hidden>Cancel</button></div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+(function () {
+'use strict';
+var $ = function (s) { return document.querySelector(s); };
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+/* ---------- Data: a curated snapshot, mid-2026 ---------- */
+var CATS = [
+  { id: 'labs',     name: 'Labs',               glyph: '<circle cx="8" cy="8" r="5.6"/>' },
+  { id: 'chips',    name: 'Chips & hardware',   glyph: '<rect x="1.5" y="5" width="13" height="6"/>' },
+  { id: 'cloud',    name: 'Cloud & compute',    glyph: '<polygon points="8,1.6 14.4,6.2 12,13.8 4,13.8 1.6,6.2"/>' },
+  { id: 'frontier', name: 'Frontier models',    glyph: '<polygon points="8,1.2 14.8,8 8,14.8 1.2,8"/>' },
+  { id: 'open',     name: 'Open models',        glyph: '<circle cx="8" cy="8" r="4.6" fill="none" stroke="currentColor" stroke-width="3"/>' },
+  { id: 'tools',    name: 'Tools & frameworks', glyph: '<polygon points="8,2 14.6,13.6 1.4,13.6"/>' },
+  { id: 'agents',   name: 'Agents & coding',    glyph: '<polygon points="8,1.4 13.8,4.7 13.8,11.3 8,14.6 2.2,11.3 2.2,4.7"/>' },
+  { id: 'apps',     name: 'Apps',               glyph: '<rect x="2.8" y="2.8" width="10.4" height="10.4"/>' }
+];
+var CAT = {}; CATS.forEach(function (c) { CAT[c.id] = c; });
+var RING = ['chips', 'cloud', 'frontier', 'apps', 'agents', 'tools', 'open'];
+function glyph(cat) {
+  return '<svg class="glyph" viewBox="0 0 16 16" fill="currentColor" style="color:var(--c-' + cat + ')" aria-hidden="true">' + CAT[cat].glyph + '</svg>';
+}
+
+var REL = {
+  makes:    ['Makes', 'Made by'],
+  powers:   ['Powers', 'Powered by'],
+  hosts:    ['Serves', 'Served by'],
+  runs:     ['Runs on', 'Provides compute for'],
+  supplies: ['Supplies', 'Supplied by'],
+  backs:    ['Backs', 'Backed by'],
+  owns:     ['Owns', 'Owned by'],
+  uses:     ['Uses', 'Used by'],
+  connects: ['Connects to', 'Reachable from'],
+  alumni:   ['Founded by alumni of', 'Alumni went on to found'],
+  sibling:  ['Shares an owner with', 'Shares an owner with'],
+  link:     ['Linked by you to', 'Linked by you to']
+};
+var REL_ORDER = ['Made by', 'Makes', 'Powered by', 'Powers', 'Served by', 'Serves', 'Runs on', 'Provides compute for', 'Uses', 'Used by',
+  'Connects to', 'Reachable from', 'Supplied by', 'Supplies', 'Backed by', 'Backs', 'Owned by', 'Owns',
+  'Founded by alumni of', 'Alumni went on to found', 'Shares an owner with', 'Linked by you to'];
+
+// [id, name, layer, year, organization, description]
+var BASE_NODES = [
+  ['nvidia', 'Nvidia', 'chips', 1993, 'Nvidia', 'Designs the GPUs most AI models are trained and served on, plus the CUDA software stack.'],
+  ['tsmc', 'TSMC', 'chips', 1987, 'TSMC', 'Contract chip maker that fabricates most leading-edge AI accelerators.'],
+  ['asml', 'ASML', 'chips', 1984, 'ASML', 'Sole maker of the EUV lithography machines needed for leading-edge chips.'],
+  ['skhynix', 'SK Hynix', 'chips', 1983, 'SK Hynix', 'Leading supplier of the high-bandwidth memory stacked beside AI GPUs.'],
+  ['amd', 'AMD', 'chips', 1969, 'AMD', 'Makes Instinct AI accelerators and EPYC server CPUs.'],
+  ['broadcom', 'Broadcom', 'chips', null, 'Broadcom', 'Co-designs custom AI chips for hyperscalers, including Google’s TPUs.'],
+  ['tpu', 'Google TPU', 'chips', 2016, 'Google', 'Google’s in-house accelerator line, used to train and serve Gemini.'],
+  ['trainium', 'AWS Trainium', 'chips', 2020, 'Amazon', 'Amazon’s custom training chip, deployed at scale for Anthropic.'],
+  ['cerebras', 'Cerebras', 'chips', null, 'Cerebras', 'Builds wafer-scale processors and runs a fast inference cloud on them.'],
+  ['groq', 'Groq', 'chips', 2016, 'Groq', 'Builds LPU inference chips and serves open models at high speed.'],
+
+  ['azure', 'Microsoft Azure', 'cloud', 2010, 'Microsoft', 'Microsoft’s cloud, and the main enterprise home of OpenAI’s models.'],
+  ['aws', 'AWS', 'cloud', 2006, 'Amazon', 'Amazon’s cloud. Its Bedrock service offers Claude, Nova and other models.'],
+  ['gcp', 'Google Cloud', 'cloud', 2008, 'Google', 'Google’s cloud. Vertex AI serves Gemini and partner models.'],
+  ['oracle', 'Oracle Cloud', 'cloud', 2016, 'Oracle', 'Cloud provider building very large GPU data centers, including for Stargate.'],
+  ['coreweave', 'CoreWeave', 'cloud', 2017, 'CoreWeave', 'GPU-focused cloud that rents Nvidia clusters to AI labs.'],
+  ['lambda', 'Lambda', 'cloud', 2012, 'Lambda', 'GPU cloud and workstation maker aimed at AI developers.'],
+  ['together', 'Together AI', 'cloud', 2022, 'Together AI', 'Inference and fine-tuning cloud for open-weight models.'],
+  ['fireworks', 'Fireworks AI', 'cloud', 2022, 'Fireworks AI', 'Inference platform for open-weight models.'],
+  ['openrouter', 'OpenRouter', 'cloud', 2023, 'OpenRouter', 'One API that routes requests across many model providers.'],
+  ['stargate', 'Stargate', 'cloud', 2025, 'OpenAI, Oracle, SoftBank', 'Joint project announced in 2025 to build AI data centers for OpenAI.'],
+
+  ['openai', 'OpenAI', 'labs', 2015, 'OpenAI', 'Maker of the GPT models, ChatGPT, Sora and Codex.'],
+  ['anthropic', 'Anthropic', 'labs', 2021, 'Anthropic', 'Maker of Claude and Claude Code. Introduced the Model Context Protocol.'],
+  ['deepmind', 'Google DeepMind', 'labs', 2010, 'Google', 'Google’s AI lab, merged with Google Brain in 2023. Makes Gemini, Veo and AlphaFold.'],
+  ['meta', 'Meta AI', 'labs', 2013, 'Meta', 'Meta’s AI organization. Released Llama and created PyTorch.'],
+  ['xai', 'xAI', 'labs', 2023, 'xAI', 'Elon Musk’s lab, maker of Grok.'],
+  ['microsoft', 'Microsoft', 'labs', 1975, 'Microsoft', 'OpenAI’s largest early backer. Ships Copilot, GitHub Copilot and the Phi models.'],
+  ['mistral', 'Mistral AI', 'labs', 2023, 'Mistral AI', 'Paris lab known for open-weight models and the Le Chat assistant.'],
+  ['deepseek', 'DeepSeek', 'labs', 2023, 'DeepSeek', 'Hangzhou lab whose open R1 reasoning model drew global attention in January 2025.'],
+  ['alibaba', 'Alibaba', 'labs', 1999, 'Alibaba', 'Its cloud unit develops the open-weight Qwen model family.'],
+  ['moonshot', 'Moonshot AI', 'labs', 2023, 'Moonshot AI', 'Beijing lab behind the Kimi assistant and the open Kimi K2 model.'],
+  ['cohere', 'Cohere', 'labs', 2019, 'Cohere', 'Toronto lab focused on enterprise language models.'],
+  ['stability', 'Stability AI', 'labs', null, 'Stability AI', 'Backed the 2022 release of Stable Diffusion.'],
+  ['bfl', 'Black Forest Labs', 'labs', 2024, 'Black Forest Labs', 'Image lab founded by original Stable Diffusion researchers. Makes FLUX.'],
+  ['runway', 'Runway', 'labs', 2018, 'Runway', 'Video generation lab behind the Gen series of models.'],
+  ['ssi', 'Safe Superintelligence', 'labs', 2024, 'SSI', 'Research lab co-founded by Ilya Sutskever after he left OpenAI.'],
+  ['tml', 'Thinking Machines Lab', 'labs', 2025, 'Thinking Machines Lab', 'Lab founded by former OpenAI CTO Mira Murati.'],
+
+  ['gpt', 'GPT', 'frontier', 2018, 'OpenAI', 'OpenAI’s flagship model line. GPT-5 arrived in August 2025.'],
+  ['claude', 'Claude', 'frontier', 2023, 'Anthropic', 'Anthropic’s model family, offered in Opus, Sonnet and Haiku tiers.'],
+  ['gemini', 'Gemini', 'frontier', 2023, 'Google DeepMind', 'Google’s multimodal model family.'],
+  ['grok', 'Grok', 'frontier', 2023, 'xAI', 'xAI’s model family, built into X.'],
+  ['sora', 'Sora', 'frontier', 2024, 'OpenAI', 'OpenAI’s video generation model.'],
+  ['veo', 'Veo', 'frontier', 2024, 'Google DeepMind', 'Google’s video generation model.'],
+  ['imagen', 'Imagen', 'frontier', 2022, 'Google DeepMind', 'Google’s text-to-image model.'],
+  ['alphafold', 'AlphaFold', 'frontier', 2018, 'Google DeepMind', 'Predicts protein structures. Its creators shared the 2024 Nobel Prize in Chemistry.'],
+  ['command', 'Command', 'frontier', null, 'Cohere', 'Cohere’s enterprise text models.'],
+  ['nova', 'Amazon Nova', 'frontier', 2024, 'Amazon', 'Amazon’s in-house model family, launched on Bedrock in December 2024.'],
+  ['runwaygen', 'Runway Gen-4', 'frontier', 2025, 'Runway', 'Runway’s video model, released in 2025.'],
+
+  ['llama', 'Llama', 'open', 2023, 'Meta', 'Meta’s open-weight model family, widely fine-tuned and self-hosted.'],
+  ['mistralm', 'Mistral models', 'open', 2023, 'Mistral AI', 'Open-weight models from Mistral, starting with Mistral 7B.'],
+  ['deepseekr1', 'DeepSeek R1', 'open', 2025, 'DeepSeek', 'Open-weight reasoning model released in January 2025.'],
+  ['qwen', 'Qwen', 'open', 2023, 'Alibaba', 'Alibaba’s open-weight model family.'],
+  ['gemma', 'Gemma', 'open', 2024, 'Google DeepMind', 'Small open-weight models built from Gemini research.'],
+  ['phi', 'Phi', 'open', 2023, 'Microsoft', 'Microsoft’s small open-weight models.'],
+  ['sd', 'Stable Diffusion', 'open', 2022, 'Stability AI', 'The open image model that started the local image-generation scene.'],
+  ['flux', 'FLUX', 'open', 2024, 'Black Forest Labs', 'Image model family with open-weight variants.'],
+  ['whisper', 'Whisper', 'open', 2022, 'OpenAI', 'Open-source speech recognition model.'],
+  ['kimi', 'Kimi K2', 'open', 2025, 'Moonshot AI', 'Open-weight model tuned for agentic coding.'],
+  ['gptoss', 'gpt-oss', 'open', 2025, 'OpenAI', 'OpenAI’s open-weight models, released in August 2025.'],
+  ['sam', 'Segment Anything', 'open', 2023, 'Meta', 'Open model that cuts any object out of an image.'],
+
+  ['pytorch', 'PyTorch', 'tools', 2016, 'Meta, Linux Foundation', 'The dominant deep learning framework for research and production.'],
+  ['jax', 'JAX', 'tools', 2018, 'Google', 'Numerical computing library used heavily inside Google DeepMind.'],
+  ['tensorflow', 'TensorFlow', 'tools', 2015, 'Google', 'Google’s earlier deep learning framework.'],
+  ['cuda', 'CUDA', 'tools', 2007, 'Nvidia', 'Nvidia’s GPU programming platform that most AI software targets.'],
+  ['hf', 'Hugging Face', 'tools', 2016, 'Hugging Face', 'The hub where open models and datasets are published, plus the Transformers library.'],
+  ['langchain', 'LangChain', 'tools', 2022, 'LangChain', 'Framework for chaining model calls, tools and retrieval.'],
+  ['llamaindex', 'LlamaIndex', 'tools', 2022, 'LlamaIndex', 'Framework for connecting models to your own data.'],
+  ['ollama', 'Ollama', 'tools', 2023, 'Ollama', 'Runs open models locally with one command.'],
+  ['llamacpp', 'llama.cpp', 'tools', 2023, 'Open source', 'C++ inference engine that made laptop-scale language models practical.'],
+  ['vllm', 'vLLM', 'tools', 2023, 'Open source', 'High-throughput inference server for open models.'],
+  ['mcp', 'Model Context Protocol', 'tools', 2024, 'Anthropic', 'Open protocol that lets assistants and agents connect to tools and data.'],
+  ['wandb', 'Weights & Biases', 'tools', 2017, 'CoreWeave', 'Experiment tracking for model training. Acquired by CoreWeave in 2025.'],
+  ['comfyui', 'ComfyUI', 'tools', 2023, 'Open source', 'Node-based interface for building image and video generation pipelines.'],
+
+  ['claudecode', 'Claude Code', 'agents', 2025, 'Anthropic', 'Anthropic’s coding agent for the terminal, IDE and web.'],
+  ['codex', 'Codex', 'agents', 2025, 'OpenAI', 'OpenAI’s coding agent for the terminal, IDE and cloud.'],
+  ['cursor', 'Cursor', 'agents', 2023, 'Anysphere', 'AI code editor that works with models from several labs.'],
+  ['ghcopilot', 'GitHub Copilot', 'agents', 2021, 'Microsoft', 'The first widely used AI pair programmer, now multi-model.'],
+  ['windsurf', 'Windsurf', 'agents', 2024, 'Cognition', 'Agentic code editor, acquired by Cognition in 2025.'],
+  ['devin', 'Devin', 'agents', 2024, 'Cognition', 'Autonomous software engineering agent.'],
+  ['replit', 'Replit Agent', 'agents', 2024, 'Replit', 'Builds and deploys apps from a prompt inside Replit.'],
+  ['lovable', 'Lovable', 'agents', 2024, 'Lovable', 'Prompt-to-app builder from Stockholm.'],
+  ['v0', 'v0', 'agents', 2023, 'Vercel', 'Generates web interfaces and full apps from prompts.'],
+  ['bolt', 'Bolt', 'agents', 2024, 'StackBlitz', 'Prompt-to-app builder that runs in the browser.'],
+  ['cline', 'Cline', 'agents', 2024, 'Open source', 'Open-source coding agent for VS Code.'],
+  ['geminicli', 'Gemini CLI', 'agents', 2025, 'Google', 'Google’s open-source terminal agent.'],
+
+  ['chatgpt', 'ChatGPT', 'apps', 2022, 'OpenAI', 'The assistant that brought generative AI to the mainstream.'],
+  ['claudeapp', 'Claude app', 'apps', 2023, 'Anthropic', 'Anthropic’s assistant on web, desktop and mobile.'],
+  ['geminiapp', 'Gemini app', 'apps', 2023, 'Google', 'Google’s assistant, launched as Bard in 2023.'],
+  ['mscopilot', 'Microsoft Copilot', 'apps', 2023, 'Microsoft', 'Assistant built into Windows, Edge and Microsoft 365.'],
+  ['metaai', 'Meta AI assistant', 'apps', 2023, 'Meta', 'Assistant inside WhatsApp, Instagram and Messenger.'],
+  ['xgrok', 'Grok on X', 'apps', 2023, 'xAI', 'Grok as it appears inside the X app.'],
+  ['perplexity', 'Perplexity', 'apps', 2022, 'Perplexity', 'Answer engine that cites web sources.'],
+  ['notebooklm', 'NotebookLM', 'apps', 2023, 'Google', 'Research notebook that answers from your own sources.'],
+  ['lechat', 'Le Chat', 'apps', 2024, 'Mistral AI', 'Mistral’s assistant.'],
+  ['notion', 'Notion AI', 'apps', 2023, 'Notion', 'Writing and search assistant inside Notion.'],
+  ['midjourney', 'Midjourney', 'apps', 2022, 'Midjourney', 'Image generation service from an independent, self-funded lab.'],
+  ['characterai', 'Character.AI', 'apps', 2022, 'Character.AI', 'Chat with user-created characters.'],
+  ['appleintel', 'Apple Intelligence', 'apps', 2024, 'Apple', 'Apple’s AI features across iPhone, iPad and Mac.']
+];
+
+// "a rel b1 b2 ..." reads as: a <REL[rel][0]> each b
+var BASE_LINKS = [
+  'asml supplies tsmc', 'tsmc supplies nvidia amd broadcom cerebras', 'skhynix supplies nvidia', 'broadcom supplies tpu',
+  'nvidia supplies azure aws gcp oracle coreweave lambda stargate meta xai', 'amd supplies azure oracle',
+  'tpu supplies gcp', 'trainium supplies aws',
+  'nvidia makes cuda',
+  'openai makes gpt sora whisper gptoss chatgpt codex',
+  'anthropic makes claude claudeapp claudecode mcp',
+  'deepmind makes gemini veo imagen alphafold gemma geminiapp jax tensorflow',
+  'meta makes llama sam pytorch metaai',
+  'xai makes grok xgrok',
+  'microsoft makes phi mscopilot ghcopilot azure',
+  'mistral makes mistralm lechat', 'deepseek makes deepseekr1', 'alibaba makes qwen', 'moonshot makes kimi',
+  'cohere makes command', 'stability makes sd', 'bfl makes flux', 'runway makes runwaygen', 'aws makes nova', 'oracle makes stargate',
+  'microsoft backs openai', 'aws backs anthropic', 'gcp backs anthropic', 'nvidia backs coreweave', 'asml backs mistral',
+  'alibaba backs moonshot', 'oracle backs cohere',
+  'coreweave owns wandb', 'devin sibling windsurf',
+  'openai runs azure oracle coreweave stargate', 'anthropic runs aws gcp', 'deepmind runs gcp tpu', 'mistral runs azure',
+  'cohere runs oracle', 'ssi runs gcp', 'stability runs aws', 'midjourney runs gcp', 'characterai runs gcp', 'replit runs gcp',
+  'perplexity runs aws', 'ghcopilot runs azure',
+  'azure hosts gpt phi', 'aws hosts claude', 'gcp hosts gemini claude', 'oracle hosts command',
+  'together hosts llama qwen deepseekr1 flux kimi', 'fireworks hosts llama deepseekr1 qwen',
+  'groq hosts llama kimi gptoss', 'cerebras hosts llama',
+  'openrouter hosts gpt claude gemini grok llama deepseekr1',
+  'hf hosts llama mistralm qwen gemma phi sd flux whisper deepseekr1 kimi gptoss sam',
+  'ollama hosts llama gemma qwen deepseekr1 mistralm phi gptoss', 'llamacpp hosts llama mistralm',
+  'vllm hosts llama qwen mistralm', 'comfyui hosts sd flux',
+  'gpt powers chatgpt codex mscopilot ghcopilot cursor windsurf notion perplexity appleintel',
+  'claude powers claudeapp claudecode cursor ghcopilot windsurf replit lovable v0 bolt cline notion perplexity',
+  'gemini powers geminiapp notebooklm geminicli cursor ghcopilot lovable appleintel',
+  'grok powers xgrok', 'llama powers metaai', 'mistralm powers lechat', 'cerebras powers lechat',
+  'veo powers geminiapp', 'imagen powers geminiapp',
+  'pytorch uses cuda', 'tensorflow uses cuda', 'hf uses pytorch', 'vllm uses pytorch', 'comfyui uses pytorch',
+  'llama uses pytorch', 'gpt uses pytorch', 'sd uses pytorch', 'gemini uses jax', 'alphafold uses jax', 'ollama uses llamacpp',
+  'claudecode uses mcp', 'codex uses mcp', 'cursor uses mcp', 'cline uses mcp', 'geminicli uses mcp', 'windsurf uses mcp',
+  'ghcopilot uses mcp', 'chatgpt uses mcp', 'claudeapp uses mcp', 'devin uses mcp',
+  'langchain connects gpt claude gemini ollama', 'llamaindex connects gpt claude hf', 'cline connects openrouter',
+  'anthropic alumni openai', 'ssi alumni openai', 'tml alumni openai', 'mistral alumni deepmind meta', 'bfl alumni stability'
+];
+
+var PALETTES = [
+  { id: 'arcade', name: 'Arcade', sw: 'linear-gradient(90deg,#22e6ff,#ff2bd6,#f4ff4a)' },
+  { id: 'terminal', name: 'Terminal', sw: 'linear-gradient(90deg,#12c96a,#3dff7a,#e6ff6a)' },
+  { id: 'sodium', name: 'Sodium', sw: 'linear-gradient(90deg,#ff4a2b,#ffb000,#ffe9a8)' },
+  { id: 'ultraviolet', name: 'Ultraviolet', sw: 'linear-gradient(90deg,#5c8dff,#b388ff,#ff5cf0)' }
+];
+
+/* ---------- Persistence (per-viewer convenience only) ---------- */
+function load(key, fallback) { try { var v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch (e) { return fallback; } }
+function save(key, v) { try { localStorage.setItem(key, JSON.stringify(v)); } catch (e) {} }
+
+var reduceMotion = false;
+try { reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+
+var DEFAULTS = { palette: 'arcade', spin: reduceMotion ? 0 : 0.3, signals: reduceMotion ? 0 : 240, links: 0.55, spread: 1, glow: 0.85, labels: true, grid: true, godOpen: true };
+var S = Object.assign({}, DEFAULTS, load('aieg.settings', {}));
+if (!PALETTES.some(function (p) { return p.id === S.palette; })) S.palette = 'arcade';
+var edits = Object.assign({ added: [], removed: [], cut: [], links: [] }, load('aieg.edits', {}));
+function saveSettings() { save('aieg.settings', S); }
+function saveEdits() { save('aieg.edits', edits); }
+
+var hiddenCats = {};
+var sel = null, hover = null, linkFrom = null;
+
+/* ---------- Graph ---------- */
+var nodes = [], links = [], byId = {};
+function pairKey(a, b) { return a < b ? a + '|' + b : b + '|' + a; }
+
+function buildGraph() {
+  var prev = byId;
+  var removed = {}; edits.removed.forEach(function (id) { removed[id] = 1; });
+  var cut = {}; edits.cut.forEach(function (k) { cut[k] = 1; });
+  nodes = []; byId = {};
+  function addNode(id, name, cat, year, org, blurb, custom) {
+    if (removed[id] || byId[id] || !CAT[cat]) return;
+    var old = prev[id];
+    var n = { id: id, name: name, cat: cat, year: year, org: org, blurb: blurb, custom: !!custom, links: [], nb: {}, deg: 0,
+      pos: old ? old.pos : null, k: old ? old.k : 0, flash: 0, phase: Math.random() * 6.28, dir: Math.random() < 0.5 ? -1 : 1,
+      sx: 0, sy: 0, sr: 0, dist: 0, vis: false };
+    nodes.push(n); byId[id] = n;
+  }
+  BASE_NODES.forEach(function (r) { addNode(r[0], r[1], r[2], r[3], r[4], r[5], false); });
+  edits.added.forEach(function (a) { addNode(a.id, a.name, a.cat, null, 'Added by you', 'A player you added in God mode. It is saved in this browser only.', true); });
+
+  links = [];
+  var seen = {};
+  function addLink(a, b, rel) {
+    if (!byId[a] || !byId[b] || a === b) return;
+    var k = pairKey(a, b);
+    if (cut[k] || seen[k + rel]) return;
+    seen[k + rel] = 1;
+    var l = { a: byId[a], b: byId[b], rel: rel, k: 0 };
+    links.push(l); byId[a].links.push(l); byId[b].links.push(l);
+    byId[a].nb[b] = 1; byId[b].nb[a] = 1;
+  }
+  BASE_LINKS.forEach(function (row) {
+    var p = row.split(' ');
+    for (var i = 2; i < p.length; i++) addLink(p[0], p[i], p[1]);
+  });
+  edits.links.forEach(function (p) { addLink(p[0], p[1], 'link'); });
+  nodes.forEach(function (n) { n.deg = Object.keys(n.nb).length; n.r = 0.95 + 0.34 * Math.sqrt(n.deg); });
+}
+
+/* ---------- Layout: a galaxy of clusters, labs at the core ---------- */
+var clusters = {};
+function layout() {
+  CATS.forEach(function (c) {
+    var list = nodes.filter(function (n) { return n.cat === c.id; }).sort(function (a, b) { return b.deg - a.deg || (a.id < b.id ? -1 : 1); });
+    var n = list.length, R = 6 + 2.5 * Math.sqrt(Math.max(n, 1));
+    var center;
+    if (c.id === 'labs') center = new THREE.Vector3(0, 20, 0);
+    else {
+      var i = RING.indexOf(c.id), ang = i / RING.length * Math.PI * 2 + 0.45;
+      center = new THREE.Vector3(Math.cos(ang) * 70, 5 + 7 * Math.sin(i * 2.4), Math.sin(ang) * 70);
+    }
+    list.forEach(function (node, j) {
+      if (j === 0) { node.home = new THREE.Vector3(0, 0, 0); return; }
+      var yy = 1 - 2 * (j - 0.5) / Math.max(n - 1, 1), rr = Math.sqrt(Math.max(0, 1 - yy * yy));
+      var rad = R * (0.5 + 0.5 * Math.sqrt(j / Math.max(n - 1, 1))), phi = j * 2.39996;
+      node.home = new THREE.Vector3(Math.cos(phi) * rr * rad, yy * rad * 0.6, Math.sin(phi) * rr * rad);
+    });
+    var d = new THREE.Vector3();
+    for (var it = 0; it < 14; it++) {
+      for (var a = 0; a < n; a++) for (var b = a + 1; b < n; b++) {
+        d.subVectors(list[b].home, list[a].home);
+        var len = d.length() || 0.001, min = 4.6 + list[a].r + list[b].r;
+        if (len < min) { d.multiplyScalar((min - len) / len * 0.5); list[b].home.add(d); if (a > 0) list[a].home.sub(d); }
+      }
+    }
+    clusters[c.id] = { center: center, R: R, count: n };
+  });
+}
+
+/* ---------- Scene ---------- */
+var canvas = $('#scene'), app = $('#app'), labelsEl = $('#labels');
+var renderer = null;
+if (window.THREE) {
+  try { renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, powerPreference: 'high-performance' }); } catch (e) { renderer = null; }
+}
+if (!renderer) {
+  var fb = el('div', 'fallback', 'The 3D view could not start. It needs WebGL and the three.js library, which did not load in this browser.');
+  app.appendChild(fb);
+  return;
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera(50, 1, 0.5, 4000);
+var HOME_TARGET = new THREE.Vector3(0, 6, 0);
+var controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.minDistance = 10; controls.maxDistance = 900;
+controls.maxPolarAngle = Math.PI * 0.53;
+controls.target.copy(HOME_TARGET);
+
+var composer = null, bloom = null;
+if (THREE.EffectComposer && THREE.RenderPass && THREE.UnrealBloomPass) {
+  try {
+    composer = new THREE.EffectComposer(renderer);
+    composer.addPass(new THREE.RenderPass(scene, camera));
+    bloom = new THREE.UnrealBloomPass(new THREE.Vector2(256, 256), S.glow, 0.75, 0.1);
+    composer.addPass(bloom);
+  } catch (e) { composer = null; bloom = null; }
+}
+
+var FLOOR = -16;
+function glowTexture() {
+  var c = document.createElement('canvas'); c.width = c.height = 64;
+  var g = c.getContext('2d'), grd = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grd.addColorStop(0, 'rgba(255,255,255,1)'); grd.addColorStop(0.25, 'rgba(255,255,255,.55)');
+  grd.addColorStop(0.6, 'rgba(255,255,255,.12)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grd; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+var glowTex = glowTexture();
+
+// One shape per layer, so layers stay readable in the single-hue palettes.
+var GEO = {
+  labs: new THREE.IcosahedronGeometry(1, 1),
+  chips: new THREE.BoxGeometry(1.9, 0.55, 1.9),
+  cloud: new THREE.DodecahedronGeometry(1.05, 0),
+  frontier: new THREE.OctahedronGeometry(1.2, 0),
+  open: new THREE.TorusGeometry(0.85, 0.3, 6, 14),
+  tools: new THREE.TetrahedronGeometry(1.35, 0),
+  agents: new THREE.CylinderGeometry(0.95, 0.95, 1.3, 6),
+  apps: new THREE.BoxGeometry(1.45, 1.45, 1.45)
+};
+var EDGE = {}; Object.keys(GEO).forEach(function (k) { EDGE[k] = new THREE.EdgesGeometry(GEO[k], 1); });
+
+var grid = new THREE.Mesh(new THREE.PlaneGeometry(2400, 2400), new THREE.ShaderMaterial({
+  transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, extensions: { derivatives: true },
+  uniforms: { uColor: { value: new THREE.Color() }, uTime: { value: 0 } },
+  vertexShader: 'varying vec3 vP; void main(){ vec4 w = modelMatrix * vec4(position,1.0); vP = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }',
+  fragmentShader: [
+    'varying vec3 vP; uniform vec3 uColor; uniform float uTime;',
+    'float gridLine(vec2 c){ vec2 g = abs(fract(c - 0.5) - 0.5) / fwidth(c); return 1.0 - min(min(g.x, g.y), 1.0); }',
+    'void main(){',
+    '  float d = length(vP.xz);',
+    '  float minor = gridLine(vP.xz / 10.0), major = gridLine(vP.xz / 50.0);',
+    '  float fade = smoothstep(520.0, 40.0, d);',
+    '  float wave = pow(0.5 + 0.5 * sin(d * 0.06 - uTime * 1.1), 10.0);',
+    '  float a = (minor * 0.2 + major * 0.5 + wave * minor * 0.7) * fade;',
+    '  gl_FragColor = vec4(uColor * a, 1.0);',
+    '}'
+  ].join('\n')
+}));
+grid.rotation.x = -Math.PI / 2; grid.position.y = FLOOR; grid.renderOrder = -2;
+scene.add(grid);
+
+var stars = (function () {
+  var n = 1400, p = new Float32Array(n * 3);
+  for (var i = 0; i < n; i++) {
+    var u = Math.random() * 2 - 1, t = Math.random() * 6.283, r = 700 + Math.random() * 900, s = Math.sqrt(1 - u * u);
+    p[i * 3] = Math.cos(t) * s * r; p[i * 3 + 1] = Math.abs(u) * r * 0.8 + 20; p[i * 3 + 2] = Math.sin(t) * s * r;
+  }
+  var g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  return new THREE.Points(g, new THREE.PointsMaterial({ size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.5, depthWrite: false }));
+})();
+scene.add(stars);
+
+var world = new THREE.Group(); scene.add(world);
+var nodeGroup = new THREE.Group(), ringGroup = new THREE.Group(); world.add(nodeGroup, ringGroup);
+
+var SEG = 18;
+var linkMesh = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+linkMesh.frustumCulled = false; world.add(linkMesh);
+var dropMesh = new THREE.LineSegments(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+dropMesh.frustumCulled = false; world.add(dropMesh);
+var MAXP = 600;
+var pulseGeo = new THREE.BufferGeometry();
+var pulsePos = new Float32Array(MAXP * 3), pulseCol = new Float32Array(MAXP * 3);
+pulseGeo.setAttribute('position', new THREE.BufferAttribute(pulsePos, 3));
+pulseGeo.setAttribute('color', new THREE.BufferAttribute(pulseCol, 3));
+var pulseMesh = new THREE.Points(pulseGeo, new THREE.PointsMaterial({ size: 3.2, map: glowTex, vertexColors: true, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+pulseMesh.frustumCulled = false; world.add(pulseMesh);
+var pulses = [];
+
+var catColor = {}, bgColor = new THREE.Color(), cssCache = {};
+function readPalette() {
+  var cs = getComputedStyle(document.documentElement);
+  function v(name) { return cs.getPropertyValue(name).trim(); }
+  CATS.forEach(function (c) { catColor[c.id] = new THREE.Color(v('--c-' + c.id)); });
+  bgColor.set(v('--bg'));
+  scene.background = bgColor;
+  grid.material.uniforms.uColor.value.set(v('--grid'));
+  stars.material.color.set(v('--fg'));
+  cssCache.accent = v('--accent'); cssCache.dim = v('--dim');
+  nodes.forEach(function (n) { if (n.obj) paintNode(n); });
+  Object.keys(clusters).forEach(function (id) { var c = clusters[id]; if (c.ring) c.ring.material.color.copy(catColor[id]); });
+}
+function paintNode(n) {
+  var c = catColor[n.cat];
+  n.obj.edges.material.color.copy(c); n.obj.halo.material.color.copy(c);
+}
+
+var linkPos, linkCol, dropPos, dropCol;
+function buildObjects() {
+  while (nodeGroup.children.length) {
+    var g = nodeGroup.children[0]; nodeGroup.remove(g);
+    g.children.forEach(function (ch) { if (ch.material) ch.material.dispose(); });
+  }
+  while (ringGroup.children.length) { var r = ringGroup.children[0]; ringGroup.remove(r); r.geometry.dispose(); r.material.dispose(); }
+  labelsEl.textContent = '';
+
+  nodes.forEach(function (n) {
+    var g = new THREE.Group();
+    var core = new THREE.Mesh(GEO[n.cat], new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true }));
+    var edges = new THREE.LineSegments(EDGE[n.cat], new THREE.LineBasicMaterial({ transparent: true }));
+    edges.scale.setScalar(1.02);
+    var body = new THREE.Group(); body.add(core, edges);
+    var halo = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    halo.scale.setScalar(5.2);
+    g.add(body, halo);
+    nodeGroup.add(g);
+    n.obj = { g: g, body: body, core: core, edges: edges, halo: halo };
+    paintNode(n);
+    var c = clusters[n.cat];
+    if (!n.pos) {
+      var src = (sel && byId[sel] && byId[sel].pos) ? byId[sel].pos : c.center.clone().multiplyScalar(reduceMotion ? S.spread : 0.15);
+      n.pos = src.clone();
+      if (reduceMotion && !sel) n.pos.add(n.home.clone().multiplyScalar(S.spread));
+    }
+    n.label = el('div', 'nl', n.name); n.label.style.opacity = '0'; n.lop = 0; n.lw = n.name.length * 6.7 + 2;
+    labelsEl.appendChild(n.label);
+  });
+
+  CATS.forEach(function (c) {
+    var cl = clusters[c.id], pts = [];
+    for (var i = 0; i <= 64; i++) { var a = i / 64 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a), 0, Math.sin(a))); }
+    cl.ring = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: catColor[c.id], transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false }));
+    ringGroup.add(cl.ring);
+    cl.label = el('div', 'cl'); cl.label.style.color = 'var(--c-' + c.id + ')';
+    cl.label.appendChild(document.createTextNode(c.name));
+    cl.label.appendChild(el('small', '', String(cl.count))); cl.lw = c.name.length * 9.4 + 30; cl.lop = -1;
+    labelsEl.appendChild(cl.label);
+  });
+
+  linkPos = new Float32Array(links.length * SEG * 6); linkCol = new Float32Array(links.length * SEG * 6);
+  linkMesh.geometry.dispose(); linkMesh.geometry = new THREE.BufferGeometry();
+  linkMesh.geometry.setAttribute('position', new THREE.BufferAttribute(linkPos, 3));
+  linkMesh.geometry.setAttribute('color', new THREE.BufferAttribute(linkCol, 3));
+  dropPos = new Float32Array(nodes.length * 6); dropCol = new Float32Array(nodes.length * 6);
+  dropMesh.geometry.dispose(); dropMesh.geometry = new THREE.BufferGeometry();
+  dropMesh.geometry.setAttribute('position', new THREE.BufferAttribute(dropPos, 3));
+  dropMesh.geometry.setAttribute('color', new THREE.BufferAttribute(dropCol, 3));
+  pulses.length = 0;
+}
+
+function rebuild() {
+  buildGraph();
+  if (sel && !byId[sel]) sel = null;
+  if (linkFrom && !byId[linkFrom]) setLinkMode(null);
+  layout(); buildObjects(); renderLayers(); renderStats(); renderInspector(); renderAddForm();
+  $('#tagline').textContent = nodes.length + ' players · ' + links.length + ' links · curated snapshot, mid-2026';
+}
+
+function worldHome(n, out) { return out.copy(clusters[n.cat].center).multiplyScalar(S.spread).addScaledVector(n.home, S.spread); }
+
+/* ---------- Camera ---------- */
+var W = 1, H = 1, mobile = false;
+var follow = null, zoomGoal = null, camGoal = null, viewOff = 0, viewOffGoal = 0;
+function homeDistance() {
+  var aspect = W / H, usable = mobile ? aspect * 1.12 : Math.max(0.5, (W - 600) / H);
+  return Math.min(520, Math.max(150, 96 / (0.44 * Math.min(usable, 1.4))));
+}
+function homePosition() {
+  var d = homeDistance();
+  return (mobile ? new THREE.Vector3(0, d * 0.8, d * 0.6) : new THREE.Vector3(0, d * 0.5, d * 0.87)).add(HOME_TARGET);
+}
+function goHome() { follow = null; zoomGoal = null; camGoal = { pos: homePosition(), target: HOME_TARGET.clone() }; }
+controls.addEventListener('start', function () { zoomGoal = null; camGoal = null; });
+
+function resize() {
+  var r = app.getBoundingClientRect();
+  W = Math.max(1, Math.round(r.width)); H = Math.max(1, Math.round(r.height));
+  mobile = W <= 860;
+  renderer.setSize(W, H, false);
+  if (composer) composer.setSize(W, H);
+  camera.aspect = W / H; viewOff = -1; camera.updateProjectionMatrix();
+  measureCover();
+}
+function measureCover() {
+  var cover = 0;
+  if (mobile) {
+    cover = 62;
+    var open = document.querySelector('.panel.open');
+    if (open) cover += open.getBoundingClientRect().height + 6;
+  } else {
+    cover = $('#p-god').getBoundingClientRect().height + 14;
+  }
+  viewOffGoal = Math.round(cover / 2);
+}
+
+/* ---------- Interaction ---------- */
+function pick(x, y, touch) {
+  var best = null, bestScore = Infinity, slack = touch ? 22 : 12;
+  for (var i = 0; i < nodes.length; i++) {
+    var n = nodes[i]; if (!n.vis) continue;
+    var d = Math.hypot(n.sx - x, n.sy - y), reach = Math.max(n.sr + 5, slack);
+    if (d > reach) continue;
+    var score = d / reach + n.dist * 0.0008;
+    if (score < bestScore) { bestScore = score; best = n; }
+  }
+  return best;
+}
+var down = null;
+canvas.addEventListener('pointerdown', function (e) { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+canvas.addEventListener('pointerup', function (e) {
+  if (!down) return;
+  var moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), held = performance.now() - down.t; down = null;
+  if (moved > 6 || held > 600) return;
+  var r = canvas.getBoundingClientRect();
+  var n = pick(e.clientX - r.left, e.clientY - r.top, e.pointerType !== 'mouse');
+  if (linkFrom) { if (n) toggleLink(linkFrom, n.id); else setLinkMode(null); return; }
+  if (n) select(n.id); else if (sel) select(null);
+});
+canvas.addEventListener('pointermove', function (e) {
+  if (e.pointerType !== 'mouse' || e.buttons) { if (hover) { hover = null; canvas.style.cursor = ''; } return; }
+  var r = canvas.getBoundingClientRect(), n = pick(e.clientX - r.left, e.clientY - r.top, false);
+  hover = n ? n.id : null; canvas.style.cursor = n ? 'pointer' : '';
+});
+canvas.addEventListener('pointerleave', function () { hover = null; });
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Escape') return;
+  if (!$('#q-results').hidden) { closeResults(); return; }
+  if (linkFrom) setLinkMode(null); else if (sel) select(null);
+});
+
+function select(id) {
+  sel = id && byId[id] ? id : null;
+  if (sel) {
+    var n = byId[sel];
+    if (hiddenCats[n.cat]) { delete hiddenCats[n.cat]; renderLayers(); }
+    var reach = 0, cnt = 0, here = worldHome(n, new THREE.Vector3()), there = new THREE.Vector3();
+    Object.keys(n.nb).forEach(function (id) { reach += here.distanceTo(worldHome(byId[id], there)); cnt++; });
+    reach = cnt ? reach / cnt : 20;
+    follow = n; camGoal = null; zoomGoal = Math.max(46, Math.min(190, reach * 1.25 + 34)) * (mobile ? 1.5 : 1);
+    if (mobile) openPanel('p-inspect');
+  } else { follow = null; zoomGoal = null; }
+  renderInspector(); renderAddForm();
+}
+
+var toastTimer = 0;
+function toast(msg, withCancel, ms) {
+  clearTimeout(toastTimer);
+  $('#toast-msg').textContent = msg; $('#toast-btn').hidden = !withCancel; $('#toast').hidden = false;
+  if (ms) toastTimer = setTimeout(function () { $('#toast').hidden = true; }, ms);
+}
+function setLinkMode(id) {
+  linkFrom = id;
+  if (id) toast('Pick another node to link or unlink it with ' + byId[id].name + '.', true);
+  else $('#toast').hidden = true;
+}
+$('#toast-btn').addEventListener('click', function () { setLinkMode(null); });
+
+function toggleLink(a, b) {
+  if (a === b) return;
+  var k = pairKey(a, b), A = byId[a], B = byId[b];
+  if (A.nb[b]) {
+    edits.links = edits.links.filter(function (p) { return pairKey(p[0], p[1]) !== k; });
+    var isBase = A.links.some(function (l) { return (l.a === B || l.b === B) && l.rel !== 'link'; });
+    if (isBase && edits.cut.indexOf(k) < 0) edits.cut.push(k);
+    toast('Unlinked ' + A.name + ' and ' + B.name + '.', false, 2600);
+  } else {
+    var ci = edits.cut.indexOf(k);
+    if (ci >= 0) edits.cut.splice(ci, 1); else edits.links.push([a, b]);
+    toast('Linked ' + A.name + ' and ' + B.name + '.', false, 2600);
+  }
+  linkFrom = null; saveEdits(); rebuild();
+}
+function removeNode(id) {
+  var n = byId[id]; if (!n) return;
+  if (n.custom) edits.added = edits.added.filter(function (a) { return a.id !== id; });
+  else if (edits.removed.indexOf(id) < 0) edits.removed.push(id);
+  edits.links = edits.links.filter(function (p) { return p[0] !== id && p[1] !== id; });
+  sel = null; follow = null; zoomGoal = null;
+  saveEdits(); rebuild(); toast('Removed ' + n.name + ' from the map.', false, 2600);
+}
+
+/* ---------- Panels ---------- */
+function renderLayers() {
+  var box = $('#layers'); box.textContent = '';
+  var max = 1; CATS.forEach(function (c) { max = Math.max(max, clusters[c.id] ? clusters[c.id].count : 0); });
+  CATS.forEach(function (c) {
+    var count = clusters[c.id] ? clusters[c.id].count : 0;
+    var b = el('button', 'layer'); b.type = 'button'; b.style.color = 'var(--c-' + c.id + ')';
+    b.setAttribute('aria-pressed', hiddenCats[c.id] ? 'false' : 'true');
+    b.innerHTML = glyph(c.id);
+    var nm = el('span', 'nm', c.name); nm.style.color = 'var(--fg)';
+    b.appendChild(nm); b.appendChild(el('span', 'ct', String(count)));
+    var bar = el('span', 'bar'), fill = el('i'); fill.style.width = (count / max * 100) + '%'; bar.appendChild(fill); b.appendChild(bar);
+    b.addEventListener('click', function () {
+      if (hiddenCats[c.id]) delete hiddenCats[c.id]; else hiddenCats[c.id] = 1;
+      if (sel && hiddenCats[byId[sel].cat]) select(null);
+      renderLayers();
+    });
+    box.appendChild(b);
+  });
+}
+
+function nodeChip(n) {
+  var b = el('button', 'chip'); b.type = 'button'; b.innerHTML = glyph(n.cat);
+  b.appendChild(el('span', '', n.name));
+  b.addEventListener('click', function () { select(n.id); });
+  return b;
+}
+function renderInspector() {
+  var box = $('#inspect'); box.textContent = '';
+  var n = sel && byId[sel];
+  if (!n) {
+    box.appendChild(el('p', 'empty', 'Nothing selected. Click a node in the galaxy, search by name, or start with one of these.'));
+    var row = el('div', 'chips'); row.style.marginTop = '10px';
+    ['openai', 'nvidia', 'claude', 'hf', 'mcp'].forEach(function (id) { if (byId[id]) row.appendChild(nodeChip(byId[id])); });
+    box.appendChild(row);
+    return;
+  }
+  var top = el('div', 'ins-top'); top.innerHTML = glyph(n.cat);
+  top.appendChild(el('span', '', CAT[n.cat].name + (n.year ? ' · since ' + n.year : '')));
+  var x = el('button', 'x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Close inspector');
+  x.addEventListener('click', function () { select(null); }); top.appendChild(x);
+  box.appendChild(top);
+  box.appendChild(el('h2', '', n.name));
+  box.appendChild(el('div', 'org', n.org + ' · ' + n.deg + (n.deg === 1 ? ' connection' : ' connections')));
+  box.appendChild(el('p', 'blurb', n.blurb));
+  var groups = {};
+  n.links.forEach(function (l) {
+    var fwd = l.a === n, phrase = REL[l.rel][fwd ? 0 : 1], other = fwd ? l.b : l.a;
+    (groups[phrase] = groups[phrase] || []).push(other);
+  });
+  REL_ORDER.forEach(function (phrase) {
+    var list = groups[phrase]; if (!list) return;
+    var sec = el('div', 'rel'); sec.appendChild(el('h3', '', phrase));
+    var chips = el('div', 'chips');
+    list.sort(function (a, b) { return b.deg - a.deg; }).forEach(function (o) { chips.appendChild(nodeChip(o)); });
+    sec.appendChild(chips); box.appendChild(sec);
+  });
+  var act = el('div', 'actions');
+  var b1 = el('button', 'btn', 'Link or unlink'); b1.type = 'button';
+  b1.addEventListener('click', function () { setLinkMode(n.id); if (mobile) closePanels(); });
+  var b2 = el('button', 'btn warn', 'Remove'); b2.type = 'button';
+  b2.addEventListener('click', function () { removeNode(n.id); });
+  act.appendChild(b1); act.appendChild(b2); box.appendChild(act);
+  box.scrollTop = 0; $('#p-inspect .panel-b').scrollTop = 0;
+}
+
+var arrivals = 0, spark = [], inFlight = 0;
+for (var si = 0; si < 60; si++) spark.push(0);
+function renderStats() {
+  $('#f-nodes').textContent = nodes.length;
+  $('#f-links').textContent = links.length;
+  $('#f-avg').textContent = nodes.length ? (links.length * 2 / nodes.length).toFixed(1) : '0';
+  var box = $('#hubs'); box.textContent = '';
+  nodes.slice().sort(function (a, b) { return b.deg - a.deg; }).slice(0, 5).forEach(function (n) {
+    var b = el('button', 'hub'); b.type = 'button'; b.innerHTML = glyph(n.cat);
+    b.appendChild(el('span', 'nm', n.name)); b.appendChild(el('span', 'ct', String(n.deg)));
+    b.addEventListener('click', function () { select(n.id); });
+    box.appendChild(b);
+  });
+}
+function drawSpark() {
+  var c = $('#spark'), g = c.getContext('2d'), w = c.width, h = c.height;
+  g.clearRect(0, 0, w, h);
+  var max = Math.max(10, Math.max.apply(null, spark)) * 1.15, step = w / (spark.length - 1);
+  g.strokeStyle = cssCache.dim; g.globalAlpha = 0.25; g.lineWidth = 1;
+  for (var y = 1; y < 3; y++) { g.beginPath(); g.moveTo(0, h * y / 3); g.lineTo(w, h * y / 3); g.stroke(); }
+  g.globalAlpha = 1;
+  g.beginPath();
+  spark.forEach(function (v, i) { var px = i * step, py = h - 3 - v / max * (h - 8); if (i) g.lineTo(px, py); else g.moveTo(px, py); });
+  g.strokeStyle = cssCache.accent; g.lineWidth = 2.5; g.stroke();
+  g.lineTo(w, h); g.lineTo(0, h); g.closePath(); g.globalAlpha = 0.16; g.fillStyle = cssCache.accent; g.fill(); g.globalAlpha = 1;
+  var last = spark[spark.length - 1], ly = h - 3 - last / max * (h - 8);
+  g.beginPath(); g.arc(w - 4, ly, 4, 0, 6.283); g.fillStyle = cssCache.accent; g.fill();
+}
+setInterval(function () {
+  spark.push(arrivals); spark.shift(); arrivals = 0;
+  $('#f-flight').textContent = inFlight; drawSpark();
+}, 1000);
+
+function renderAddForm() {
+  $('#add-hint').textContent = sel && byId[sel] ? 'The new player will link to ' + byId[sel].name + '.' : 'New players link to the selected node, if there is one.';
+}
+(function initGod() {
+  var pals = $('#pals');
+  PALETTES.forEach(function (p) {
+    var b = el('button', 'pal'); b.type = 'button'; b.dataset.id = p.id;
+    var sw = el('i'); sw.style.background = p.sw; b.appendChild(sw); b.appendChild(el('span', '', p.name));
+    b.addEventListener('click', function () { S.palette = p.id; saveSettings(); applyPalette(); });
+    pals.appendChild(b);
+  });
+  var sel2 = $('#add-cat');
+  CATS.forEach(function (c) { var o = el('option', '', c.name); o.value = c.id; sel2.appendChild(o); });
+  sel2.value = 'apps';
+  [['spin', 's-spin'], ['signals', 's-signals'], ['links', 's-links'], ['spread', 's-spread'], ['glow', 's-glow']].forEach(function (p) {
+    var inp = $('#' + p[1]); inp.value = S[p[0]];
+    inp.addEventListener('input', function () { S[p[0]] = parseFloat(inp.value); saveSettings(); applySettings(); });
+  });
+  [['labels', 't-labels'], ['grid', 't-grid']].forEach(function (p) {
+    var inp = $('#' + p[1]); inp.checked = !!S[p[0]];
+    inp.addEventListener('change', function () { S[p[0]] = inp.checked; saveSettings(); applySettings(); });
+  });
+  $('#add-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = $('#add-name').value.trim().replace(/\s+/g, ' ').slice(0, 32);
+    if (!name) { toast('Give the new player a name first.', false, 2600); $('#add-name').focus(); return; }
+    var existing = nodes.filter(function (n) { return n.name.toLowerCase() === name.toLowerCase(); })[0];
+    if (existing) { select(existing.id); toast(existing.name + ' is already on the map.', false, 2600); return; }
+    var id = 'u-' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
+    edits.added.push({ id: id, name: name, cat: $('#add-cat').value });
+    if (sel && byId[sel]) edits.links.push([id, sel]);
+    saveEdits(); rebuild(); $('#add-name').value = '';
+    select(id); toast('Added ' + name + '.', false, 2600);
+  });
+  $('#b-home').addEventListener('click', function () { select(null); goHome(); if (mobile) closePanels(); });
+  var armed = 0;
+  $('#b-restore').addEventListener('click', function () {
+    var b = $('#b-restore');
+    if (!armed) { b.textContent = 'Click again to confirm'; armed = setTimeout(function () { armed = 0; b.textContent = 'Restore map'; }, 3200); return; }
+    clearTimeout(armed); armed = 0; b.textContent = 'Restore map';
+    edits = { added: [], removed: [], cut: [], links: [] }; saveEdits(); hiddenCats = {}; sel = null; follow = null;
+    rebuild(); toast('The original map is back.', false, 2600);
+  });
+  var gt = $('#god-toggle');
+  function setGod(open) {
+    $('#p-god').classList.toggle('collapsed', !open); gt.textContent = open ? 'hide' : 'show'; gt.setAttribute('aria-expanded', String(open));
+    measureCover();
+  }
+  gt.addEventListener('click', function () { S.godOpen = $('#p-god').classList.contains('collapsed'); saveSettings(); setGod(S.godOpen); });
+  setGod(S.godOpen !== false);
+})();
+
+function applyPalette() {
+  if (S.palette === 'arcade') document.documentElement.removeAttribute('data-palette');
+  else document.documentElement.setAttribute('data-palette', S.palette);
+  [].forEach.call(document.querySelectorAll('.pal'), function (b) { b.setAttribute('aria-pressed', String(b.dataset.id === S.palette)); });
+  readPalette(); drawSpark();
+}
+function applySettings() {
+  controls.autoRotate = S.spin > 0.005; controls.autoRotateSpeed = S.spin * 1.4;
+  linkMesh.material.opacity = S.links;
+  if (bloom) bloom.strength = S.glow;
+  grid.visible = !!S.grid;
+}
+
+/* Search */
+var resultsEl = $('#q-results'), qEl = $('#q'), resultIdx = 0, resultList = [];
+function closeResults() { resultsEl.hidden = true; resultsEl.textContent = ''; resultList = []; }
+function showResults() {
+  var q = qEl.value.trim().toLowerCase(); resultsEl.textContent = ''; resultList = [];
+  if (!q) { resultsEl.hidden = true; return; }
+  resultList = nodes.filter(function (n) { return n.name.toLowerCase().indexOf(q) >= 0 || n.org.toLowerCase().indexOf(q) >= 0; })
+    .sort(function (a, b) { return (a.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) - (b.name.toLowerCase().indexOf(q) === 0 ? 0 : 1) || b.deg - a.deg; }).slice(0, 7);
+  resultIdx = 0;
+  if (!resultList.length) { var li0 = el('li', 'none', 'No player by that name. Add it in God mode.'); resultsEl.appendChild(li0); }
+  resultList.forEach(function (n, i) {
+    var li = el('li'), b = el('button', i === 0 ? 'on' : ''); b.type = 'button'; b.innerHTML = glyph(n.cat);
+    b.appendChild(el('span', '', n.name));
+    b.addEventListener('click', function () { chooseResult(n); });
+    li.appendChild(b); resultsEl.appendChild(li);
+  });
+  resultsEl.hidden = false;
+}
+function chooseResult(n) { qEl.value = ''; closeResults(); qEl.blur(); select(n.id); }
+qEl.addEventListener('input', showResults);
+qEl.addEventListener('keydown', function (e) {
+  if (!resultList.length) return;
+  if (e.key === 'Enter') { e.preventDefault(); chooseResult(resultList[resultIdx]); return; }
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  resultIdx = (resultIdx + (e.key === 'ArrowDown' ? 1 : resultList.length - 1)) % resultList.length;
+  [].forEach.call(resultsEl.querySelectorAll('button'), function (b, i) { b.className = i === resultIdx ? 'on' : ''; });
+});
+document.addEventListener('pointerdown', function (e) { if (!e.target.closest('.search')) closeResults(); });
+
+/* Mobile sheets */
+function closePanels() {
+  [].forEach.call(document.querySelectorAll('.panel.open'), function (p) { p.classList.remove('open'); });
+  [].forEach.call(document.querySelectorAll('.tab'), function (t) { t.setAttribute('aria-pressed', 'false'); });
+  measureCover();
+}
+function openPanel(id) {
+  closePanels(); $('#' + id).classList.add('open');
+  [].forEach.call(document.querySelectorAll('.tab'), function (t) { t.setAttribute('aria-pressed', String(t.dataset.panel === id)); });
+  measureCover();
+}
+[].forEach.call(document.querySelectorAll('.tab'), function (t) {
+  t.addEventListener('click', function () { if ($('#' + t.dataset.panel).classList.contains('open')) closePanels(); else openPanel(t.dataset.panel); });
+});
+
+/* ---------- Frame loop ---------- */
+var tmp = new THREE.Vector3(), tmp2 = new THREE.Vector3(), ctl = new THREE.Vector3(), col = new THREE.Color();
+var time = 0, last = performance.now();
+
+function spawnPulse(p) {
+  var pool = links;
+  if (sel && byId[sel] && Math.random() < 0.7 && byId[sel].links.length) pool = byId[sel].links;
+  for (var tries = 0; tries < 6; tries++) {
+    var l = pool[(Math.random() * pool.length) | 0];
+    if (l && !hiddenCats[l.a.cat] && !hiddenCats[l.b.cat]) { p.l = l; p.t = 0; p.sp = 0.22 + Math.random() * 0.4; p.rev = Math.random() < 0.25; return true; }
+    pool = links;
+  }
+  p.l = null; return false;
+}
+
+function frame(now) {
+  requestAnimationFrame(frame);
+  if (document.hidden) { last = now; return; }
+  var dt = Math.min(0.05, (now - last) / 1000); last = now; time += dt;
+  var ease = 1 - Math.exp(-dt * 5), easeK = 1 - Math.exp(-dt * 9);
+  var selNode = sel && byId[sel], sp = S.spread, i, n, l;
+
+  // nodes
+  for (i = 0; i < nodes.length; i++) {
+    n = nodes[i];
+    var c = clusters[n.cat];
+    worldHome(n, tmp);
+    if (!reduceMotion) tmp.y += Math.sin(time * 0.6 + n.phase) * 0.6;
+    n.pos.lerp(tmp, ease);
+    var hid = !!hiddenCats[n.cat];
+    var lit = !selNode || n === selNode || selNode.nb[n.id];
+    var kt = hid ? 0 : (lit ? 1 : 0.1);
+    n.k += (kt - n.k) * easeK;
+    n.flash *= Math.exp(-dt * 4);
+    var o = n.obj;
+    o.g.visible = n.k > 0.015;
+    o.g.position.copy(n.pos);
+    var boost = (n === selNode ? 0.2 : 0) + (hover === n.id ? 0.22 : 0) + n.flash * 0.3;
+    o.g.scale.setScalar(n.r * (1 + boost));
+    if (!reduceMotion) { o.body.rotation.y += dt * 0.35 * n.dir; o.body.rotation.x += dt * 0.12 * n.dir; }
+    col.copy(catColor[n.cat]).multiplyScalar((n === selNode ? 0.42 : 0.2) * n.k + n.flash * 0.25);
+    o.core.material.color.copy(col); o.core.material.opacity = Math.min(1, n.k * 1.4);
+    o.edges.material.opacity = n.k;
+    o.halo.material.opacity = (0.28 + n.flash * 0.5 + (n === selNode ? 0.3 : 0)) * n.k;
+    // drop line to the grid
+    var d6 = i * 6, cc = catColor[n.cat], dk = 0.5 * n.k;
+    dropPos[d6] = n.pos.x; dropPos[d6 + 1] = n.pos.y - n.r; dropPos[d6 + 2] = n.pos.z;
+    dropPos[d6 + 3] = n.pos.x; dropPos[d6 + 4] = FLOOR; dropPos[d6 + 5] = n.pos.z;
+    dropCol[d6] = cc.r * dk * 0.15; dropCol[d6 + 1] = cc.g * dk * 0.15; dropCol[d6 + 2] = cc.b * dk * 0.15;
+    dropCol[d6 + 3] = cc.r * dk; dropCol[d6 + 4] = cc.g * dk; dropCol[d6 + 5] = cc.b * dk;
+  }
+  dropMesh.geometry.attributes.position.needsUpdate = true; dropMesh.geometry.attributes.color.needsUpdate = true;
+
+  // cluster rings
+  for (i = 0; i < CATS.length; i++) {
+    var cl = clusters[CATS[i].id];
+    cl.ring.position.set(cl.center.x * sp, FLOOR + 0.05, cl.center.z * sp);
+    cl.ring.scale.setScalar(cl.R * sp * 0.95);
+    cl.ring.visible = !hiddenCats[CATS[i].id] && cl.count > 0;
+  }
+
+  // links
+  for (i = 0; i < links.length; i++) {
+    l = links[i];
+    var A = l.a.pos, B = l.b.pos, lhid = hiddenCats[l.a.cat] || hiddenCats[l.b.cat];
+    var lt = lhid ? 0 : (!selNode ? 0.5 : (l.a === selNode || l.b === selNode ? 1.5 : 0.035));
+    l.k += (lt - l.k) * easeK;
+    var len = A.distanceTo(B);
+    ctl.addVectors(A, B).multiplyScalar(0.5); ctl.y += len * 0.2 + 2; l.cx = ctl.x; l.cy = ctl.y; l.cz = ctl.z;
+    var ca = catColor[l.a.cat], cb = catColor[l.b.cat], base = i * SEG * 6;
+    var px = A.x, py = A.y, pz = A.z, pr = ca.r * l.k, pg = ca.g * l.k, pb = ca.b * l.k;
+    for (var s = 1; s <= SEG; s++) {
+      var t = s / SEG, u = 1 - t, w0 = u * u, w1 = 2 * u * t, w2 = t * t;
+      var x = w0 * A.x + w1 * ctl.x + w2 * B.x, y = w0 * A.y + w1 * ctl.y + w2 * B.y, z = w0 * A.z + w1 * ctl.z + w2 * B.z;
+      var r = (ca.r * u + cb.r * t) * l.k, g = (ca.g * u + cb.g * t) * l.k, b = (ca.b * u + cb.b * t) * l.k;
+      var q = base + (s - 1) * 6;
+      linkPos[q] = px; linkPos[q + 1] = py; linkPos[q + 2] = pz; linkPos[q + 3] = x; linkPos[q + 4] = y; linkPos[q + 5] = z;
+      linkCol[q] = pr; linkCol[q + 1] = pg; linkCol[q + 2] = pb; linkCol[q + 3] = r; linkCol[q + 4] = g; linkCol[q + 5] = b;
+      px = x; py = y; pz = z; pr = r; pg = g; pb = b;
+    }
+  }
+  if (links.length) { linkMesh.geometry.attributes.position.needsUpdate = true; linkMesh.geometry.attributes.color.needsUpdate = true; }
+
+  // signals
+  var want = links.length ? Math.min(MAXP, Math.round(S.signals)) : 0;
+  while (pulses.length < want) { var np = {}; spawnPulse(np); if (np.l) np.t = Math.random(); pulses.push(np); }
+  if (pulses.length > want) pulses.length = want;
+  inFlight = 0;
+  for (i = 0; i < pulses.length; i++) {
+    var p = pulses[i], i3 = i * 3;
+    if (!p.l || hiddenCats[p.l.a.cat] || hiddenCats[p.l.b.cat]) { spawnPulse(p); }
+    if (p.l) {
+      p.t += p.sp * dt;
+      if (p.t >= 1) { arrivals++; (p.rev ? p.l.a : p.l.b).flash = Math.min(1, (p.rev ? p.l.a : p.l.b).flash + 0.6); spawnPulse(p); }
+    }
+    if (!p.l) { pulseCol[i3] = pulseCol[i3 + 1] = pulseCol[i3 + 2] = 0; continue; }
+    inFlight++;
+    l = p.l; var tt = p.rev ? 1 - p.t : p.t, uu = 1 - tt, a0 = uu * uu, a1 = 2 * uu * tt, a2 = tt * tt;
+    pulsePos[i3] = a0 * l.a.pos.x + a1 * l.cx + a2 * l.b.pos.x;
+    pulsePos[i3 + 1] = a0 * l.a.pos.y + a1 * l.cy + a2 * l.b.pos.y;
+    pulsePos[i3 + 2] = a0 * l.a.pos.z + a1 * l.cz + a2 * l.b.pos.z;
+    var pc = catColor[(p.rev ? l.b : l.a).cat], pk = Math.min(1, l.k * 2.2) * Math.sin(Math.PI * Math.min(1, p.t)) ;
+    pk = 0.25 + 0.75 * pk; pk *= Math.min(1, l.k * 2.2);
+    pulseCol[i3] = pc.r * pk; pulseCol[i3 + 1] = pc.g * pk; pulseCol[i3 + 2] = pc.b * pk;
+  }
+  pulseGeo.setDrawRange(0, pulses.length);
+  pulseGeo.attributes.position.needsUpdate = true; pulseGeo.attributes.color.needsUpdate = true;
+
+  // camera
+  if (camGoal) {
+    controls.target.lerp(camGoal.target, ease); camera.position.lerp(camGoal.pos, ease);
+    if (camera.position.distanceTo(camGoal.pos) < 0.6) camGoal = null;
+  } else {
+    var goalT = follow ? follow.pos : (selNode ? selNode.pos : HOME_TARGET);
+    tmp.subVectors(goalT, controls.target).multiplyScalar(1 - Math.exp(-dt * 4));
+    controls.target.add(tmp); camera.position.add(tmp);
+    if (zoomGoal) {
+      tmp2.subVectors(camera.position, controls.target);
+      var cur = tmp2.length(), nxt = cur + (zoomGoal - cur) * (1 - Math.exp(-dt * 3));
+      tmp2.multiplyScalar(nxt / cur); camera.position.copy(controls.target).add(tmp2);
+      if (Math.abs(nxt - zoomGoal) < 0.4) zoomGoal = null;
+    }
+  }
+  if (Math.abs(viewOff - viewOffGoal) > 0.5) {
+    viewOff = viewOff < 0 ? viewOffGoal : viewOff + (viewOffGoal - viewOff) * (1 - Math.exp(-dt * 8));
+    camera.setViewOffset(W, H, 0, Math.round(viewOff), W, H);
+  }
+  controls.update();
+  grid.material.uniforms.uTime.value = reduceMotion ? 0 : time;
+
+  if (composer) composer.render(); else renderer.render(scene, camera);
+
+  // labels and pick cache
+  var pxPerUnit = H / (2 * Math.tan(camera.fov * Math.PI / 360));
+  var camDist = camera.position.distanceTo(controls.target);
+  var near = Math.max(60, camDist * 0.75), far = near * 1.45;
+  nPlaced = 0; cand.length = 0;
+  for (i = 0; i < CATS.length; i++) {
+    var c2 = clusters[CATS[i].id];
+    tmp.copy(c2.center).multiplyScalar(sp); tmp.y += c2.R * sp * 0.62 + 5;
+    tmp.project(camera);
+    var show = tmp.z < 1 && tmp.z > -1 && !hiddenCats[CATS[i].id] && c2.count > 0;
+    var cop = show ? (selNode ? 0.35 : 1) : 0;
+    if (c2.lop !== cop) { c2.label.style.opacity = String(cop); c2.lop = cop; }
+    if (!show) continue;
+    var cx = (tmp.x * 0.5 + 0.5) * W, cy = (-tmp.y * 0.5 + 0.5) * H;
+    c2.label.style.transform = 'translate(-50%,-50%) translate(' + cx.toFixed(1) + 'px,' + cy.toFixed(1) + 'px)';
+    if (!selNode) place(cx - c2.lw / 2, cy - 9, c2.lw, 18);
+  }
+  for (i = 0; i < nodes.length; i++) {
+    n = nodes[i];
+    tmp.copy(n.pos).project(camera);
+    n.dist = camera.position.distanceTo(n.pos);
+    n.sx = (tmp.x * 0.5 + 0.5) * W; n.sy = (-tmp.y * 0.5 + 0.5) * H;
+    n.sr = n.r * pxPerUnit / Math.max(n.dist, 0.001);
+    var onscreen = tmp.z < 1 && tmp.z > -1 && n.sx > -40 && n.sx < W + 40 && n.sy > -20 && n.sy < H + 20;
+    n.vis = onscreen && n.k > 0.05;
+    var op = 0;
+    if (n.vis) {
+      if (n === selNode || hover === n.id) op = 1;
+      else if (selNode) op = selNode.nb[n.id] ? 0.95 : 0;
+      else if (S.labels) op = n.deg >= 9 ? 0.92 : Math.max(0, Math.min(0.9, (far - n.dist) / (far - near)));
+    }
+    n.op = op;
+    n.pri = (n === selNode || hover === n.id ? 1e4 : 0) + (n.lop > 0 ? 30 : 0) + n.deg + op;
+    if (op >= 0.03) cand.push(n); else if (n.lop !== 0) { n.label.style.opacity = '0'; n.lop = 0; }
+  }
+  cand.sort(function (a, b) { return b.pri - a.pri; });
+  for (i = 0; i < cand.length; i++) {
+    n = cand[i];
+    var lx = n.sx + n.sr + 6, ly = n.sy - 5;
+    var free = place(lx - 2, ly - 2, n.lw + 4, 15) || n.pri >= 1e4;
+    var fop = free ? n.op : 0;
+    if (Math.abs(fop - n.lop) > 0.02) { n.label.style.opacity = fop.toFixed(2); n.lop = fop; }
+    if (free) n.label.style.transform = 'translate(' + lx.toFixed(1) + 'px,' + ly.toFixed(1) + 'px)';
+  }
+}
+var cand = [], placed = new Float32Array(4 * 160), nPlaced = 0;
+function place(x, y, w, h) {
+  for (var j = 0; j < nPlaced; j++) {
+    var q = j * 4;
+    if (x < placed[q] + placed[q + 2] && x + w > placed[q] && y < placed[q + 1] + placed[q + 3] && y + h > placed[q + 1]) return false;
+  }
+  if (nPlaced < 160) { var z = nPlaced * 4; placed[z] = x; placed[z + 1] = y; placed[z + 2] = w; placed[z + 3] = h; nPlaced++; }
+  return true;
+}
+
+/* ---------- Boot ---------- */
+applyPalette();
+rebuild();
+applySettings();
+resize();
+camera.position.copy(homePosition());
+if (window.ResizeObserver) new ResizeObserver(resize).observe(app); else window.addEventListener('resize', resize);
+drawSpark();
+requestAnimationFrame(frame);
+})();
+</script>
